@@ -1,0 +1,68 @@
+/* Fondo general */
+body {
+    background-color: #ECF0F1;
+    color: #2C3E50;
+}
+
+.navbar {
+    background-color: #007BFF; /* Azul */
+    padding: 15px;
+    color: #FFFFFF; /* Texto blanco */
+    display: flex;
+    justify-content: space-around;
+}
+
+.nav-link {
+    color: #FFFFFF; /* Texto blanco */
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.nav-link:hover {
+    color: #FFD700; /* Amarillo dorado al pasar el cursor */
+}
+
+/* Contenedor de los anuncios */
+.masonry {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.masonry-item {
+    flex: 1 1 calc(20% - 20px); /* 5 tarjetas por fila en PC */
+}
+
+@media (max-width: 768px) {
+    .masonry-item {
+        flex: 1 1 calc(50% - 20px); /* 2 tarjetas por fila en m¨®viles */
+    }
+}
+
+.card {
+    margin-bottom: 20px;
+}
+
+.card-img-top {
+    width: 100%;
+    height: 250px; /* Ajusta esta altura seg¨²n sea necesario */
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+/* Fondo del bot¨®n principal */
+.btn-primary {
+    background-color: #E74C3C;
+    border-color: #E74C3C;
+}
+
+.btn-primary:hover {
+    background-color: #C0392B;
+    border-color: #C0392B;
+}
+
+/* Fondo del pie de p¨¢gina */
+footer {
+    background-color: #1A5276; /* Azul Oscuro */
+    color: #FFFFFF; /* Blanco */
+}
