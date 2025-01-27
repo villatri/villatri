@@ -224,16 +224,15 @@ $stmt->bind_param('iiiisssisii',
         if (isset($_POST['imagen_principal']) && !empty($_POST['imagen_principal'])) {
             $imagen_principal_id = intval($_POST['imagen_principal']);
             
-            // Resetear todas las imágenes como no principales
-            $queryResetMain = "UPDATE imagenes_anuncios SET principal = 0 
-                             WHERE anuncio_id = ?";
+            // Primero, resetear todas las imágenes como no principales
+            $queryResetMain = "UPDATE imagenes_anuncios SET principal = 0 WHERE anuncio_id = ?";
             $stmtResetMain = $conn->prepare($queryResetMain);
             $stmtResetMain->bind_param('i', $anuncio_id);
             $stmtResetMain->execute();
-
-            // Establecer la nueva imagen principal
+        
+            // Luego, establecer la nueva imagen principal
             $querySetMain = "UPDATE imagenes_anuncios SET principal = 1 
-                           WHERE id = ? AND anuncio_id = ?";
+                             WHERE id = ? AND anuncio_id = ?";
             $stmtSetMain = $conn->prepare($querySetMain);
             $stmtSetMain->bind_param('ii', $imagen_principal_id, $anuncio_id);
             $stmtSetMain->execute();
@@ -818,7 +817,7 @@ $stmt->bind_param('iiiisssisii',
                 <div class="image-upload-container" id="drop-area">
                     <p class="mb-0">
                         <i class="fas fa-cloud-upload-alt fa-2x mb-2"></i><br>
-                        Arrastra y suelta imágenes aquí o haz clic para seleccionar
+                        Arrastra y suelta imágenes aquí o haz clic para seleccionar (8 maximo)
                     </p>
                     <input type="file" name="imagenes[]" id="imagenes" class="d-none"
                            multiple accept=".jpg,.jpeg,.png,.gif">
@@ -1048,6 +1047,13 @@ function setMainImage(index) {
             icon.classList.remove('far');
             icon.classList.add('fas');
             imageItem.setAttribute('data-main', 'true');
+            
+            // Actualizar el input hidden con el ID de la imagen principal
+            const imageId = imageItem.dataset.id;
+            if (imageId) {
+                document.getElementById('imagen_principal').value = imageId;
+            }
+            
             images[i].isMain = true;
         } else {
             button.classList.remove('active');
@@ -1100,27 +1106,23 @@ function renderImages() {
     previewContainer.innerHTML = '';
     
     images.forEach((image, index) => {
-        // Crear contenedor de imagen
         const imageItem = document.createElement('div');
         imageItem.classList.add('image-item');
-        
-        // Agregar ID si existe
         if (image.id) {
             imageItem.dataset.id = image.id;
         }
         
-        // Marcar como principal si corresponde
+        // Agregar data-main si es la imagen principal
         if (image.isMain) {
             imageItem.setAttribute('data-main', 'true');
         }
 
-        // Crear y configurar la imagen
         const img = document.createElement('img');
         img.src = image.src;
         img.alt = 'Imagen del anuncio';
         imageItem.appendChild(img);
 
-        // Crear botón de marcar como principal
+        // Modificar esta parte para usar iconos en lugar de texto
         const markMainButton = document.createElement('button');
         markMainButton.type = 'button';
         markMainButton.classList.add('mark-main');
@@ -1128,26 +1130,27 @@ function renderImages() {
             markMainButton.classList.add('active');
         }
         
-        // Crear icono de estrella
+        // Crear el icono de estrella
         const starIcon = document.createElement('i');
         starIcon.classList.add(image.isMain ? 'fas' : 'far', 'fa-star');
         markMainButton.appendChild(starIcon);
-        markMainButton.addEventListener('click', () => setMainImage(index));
+        
+        markMainButton.onclick = () => setMainImage(index);
         imageItem.appendChild(markMainButton);
 
-        // Crear botón de eliminar
+        // Modificar esta parte para usar icono de papelera
         const removeButton = document.createElement('button');
         removeButton.type = 'button';
         removeButton.classList.add('remove-image');
         
-        // Crear icono de papelera
+        // Crear el icono de papelera
         const trashIcon = document.createElement('i');
         trashIcon.classList.add('fas', 'fa-trash-alt');
         removeButton.appendChild(trashIcon);
-        removeButton.addEventListener('click', () => removeImage(index));
+        
+        removeButton.onclick = () => removeImage(index);
         imageItem.appendChild(removeButton);
 
-        // Agregar el elemento completo al contenedor
         previewContainer.appendChild(imageItem);
     });
 }
