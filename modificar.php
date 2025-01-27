@@ -235,7 +235,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Modificar Anuncio</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    
 <style>
     /* Estilos generales */
     .container {
@@ -542,94 +542,127 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <input type="hidden" name="imagen_principal" id="imagen_principal" value="">
             <input type="hidden" name="imagenes_eliminadas" id="imagenes_eliminadas" value="[]">
 
-            <!-- Box 1: Categoría, Ciudad y Comuna -->
-            <div class="box mb-4 p-4 border rounded shadow-sm">
-                <h4 class="mb-3">Información del Anuncio</h4>
-                <div class="form-group">
-                    <label for="categoria_id">Categoría</label>
-                    <select name="categoria_id" id="categoria_id" class="form-control" required>
-                        <option value="" disabled>Selecciona una categoría</option>
-                        <?php while ($categoria = $resultCategorias->fetch_assoc()): ?>
-                            <option value="<?= $categoria['id']; ?>" 
-                                    <?= $categoria['id'] == $anuncio['categoria_id'] ? 'selected' : ''; ?>>
-                                <?= htmlspecialchars($categoria['nombre']); ?>
+<!-- Box 1: Categoría, Ciudad y Comuna -->
+<div class="box mb-4 p-4 border rounded shadow-sm">
+    <h4 class="mb-3">Información del Anuncio</h4>
+    
+    <!-- Categoría -->
+    <div class="form-group mb-4">
+        <label for="categoria_id" class="form-label">Categoría *</label>
+        <select name="categoria_id" id="categoria_id" class="form-control" required>
+            <option value="" disabled selected>Selecciona una categoría</option>
+            <?php while ($categoria = $resultCategorias->fetch_assoc()): ?>
+                <option value="<?= htmlspecialchars($categoria['id']); ?>"
+                        <?= isset($anuncio['categoria_id']) && $categoria['id'] == $anuncio['categoria_id'] ? 'selected' : ''; ?>>
+                    <?= htmlspecialchars($categoria['nombre']); ?>
+                </option>
+            <?php endwhile; ?>
+        </select>
+        <div class="invalid-feedback">Por favor, selecciona una categoría.</div>
+    </div>
+
+    <!-- Ciudad y Comuna en grid -->
+    <div class="row g-3"> <!-- g-3 agrega un espaciado entre columnas -->
+        <div class="col-md-6">
+            <div class="form-group">
+                <label for="ciudad_id" class="form-label">Ciudad *</label>
+                <select name="ciudad_id" id="ciudad_id" class="form-control" onchange="filtrarComunas()" required>
+                    <option value="" disabled selected>Selecciona una ciudad</option>
+                    <?php while ($ciudad = $resultCiudades->fetch_assoc()): ?>
+                        <option value="<?= htmlspecialchars($ciudad['id']); ?>"
+                                <?= isset($anuncio['ciudad_id']) && $ciudad['id'] == $anuncio['ciudad_id'] ? 'selected' : ''; ?>>
+                            <?= htmlspecialchars($ciudad['nombre']); ?>
+                        </option>
+                    <?php endwhile; ?>
+                </select>
+                <div class="invalid-feedback">Por favor, selecciona una ciudad.</div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="form-group">
+                <label for="comuna_id" class="form-label">Comuna *</label>
+                <select name="comuna_id" id="comuna_id" class="form-control" required>
+                    <option value="" disabled selected>Primero selecciona una ciudad</option>
+                    <?php if (isset($anuncio['ciudad_id'])): ?>
+                        <?php
+                        $queryComunas = "SELECT id, nombre FROM comunas WHERE ciudad_id = ? ORDER BY nombre";
+                        $stmtComunas = $conn->prepare($queryComunas);
+                        $stmtComunas->bind_param('i', $anuncio['ciudad_id']);
+                        $stmtComunas->execute();
+                        $resultComunas = $stmtComunas->get_result();
+                        while ($comuna = $resultComunas->fetch_assoc()): ?>
+                            <option value="<?= htmlspecialchars($comuna['id']); ?>"
+                                    <?= isset($anuncio['comuna_id']) && $comuna['id'] == $anuncio['comuna_id'] ? 'selected' : ''; ?>>
+                                <?= htmlspecialchars($comuna['nombre']); ?>
                             </option>
                         <?php endwhile; ?>
-                    </select>
-                </div>
-
-                <div class="form-row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="ciudad_id">Ciudad</label>
-                            <select name="ciudad_id" id="ciudad_id" class="form-control" 
-                                    onchange="filtrarComunas()" required>
-                                <option value="" disabled>Selecciona una ciudad</option>
-                                <?php while ($ciudad = $resultCiudades->fetch_assoc()): ?>
-                                    <option value="<?= $ciudad['id']; ?>" 
-                                            <?= $ciudad['id'] == $anuncio['ciudad_id'] ? 'selected' : ''; ?>>
-                                        <?= htmlspecialchars($ciudad['nombre']); ?>
-                                    </option>
-                                <?php endwhile; ?>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="comuna_id">Comuna</label>
-                            <select name="comuna_id" id="comuna_id" class="form-control" required>
-                                <option value="" disabled>Selecciona una comuna</option>
-                                <?php
-                                $queryComunas = "SELECT id, nombre FROM comunas WHERE ciudad_id = ?";
-                                $stmtComunas = $conn->prepare($queryComunas);
-                                $stmtComunas->bind_param('i', $anuncio['ciudad_id']);
-                                $stmtComunas->execute();
-                                $resultComunas = $stmtComunas->get_result();
-                                while ($comuna = $resultComunas->fetch_assoc()): ?>
-                                    <option value="<?= $comuna['id']; ?>" 
-                                            <?= $comuna['id'] == $anuncio['comuna_id'] ? 'selected' : ''; ?>>
-                                        <?= htmlspecialchars($comuna['nombre']); ?>
-                                    </option>
-                                <?php endwhile; ?>
-                            </select>
-                        </div>
-                    </div>
-                </div>
+                    <?php endif; ?>
+                </select>
+                <div class="invalid-feedback">Por favor, selecciona una comuna.</div>
             </div>
+        </div>
+    </div>
+</div>
 
-            <!-- Box 2: Edad, Título y Descripción -->
-            <div class="box mb-4 p-4 border rounded shadow-sm">
-                <h4 class="mb-3">Detalles del Anuncio</h4>
-                <div class="form-row">
-                    <div class="col-md-2">
-                        <div class="form-group">
-                            <label for="edad">Edad</label>
-                            <input type="number" name="edad" id="edad" class="form-control"
-                                   min="18" max="99" required
-                                   value="<?= htmlspecialchars($anuncio['edad']); ?>">
-                        </div>
-                    </div>
-                </div>
+<!-- Box 2: Edad, Título y Descripción -->
+<div class="box mb-4 p-4 border rounded shadow-sm">
+    <h4 class="mb-3">Detalles del Anuncio</h4>
+    
+    <!-- Edad -->
+    <div class="mb-4">
+        <div class="col-md-2 px-0">
+            <label for="edad" class="form-label">Edad *</label>
+            <input type="number" 
+                   name="edad" 
+                   id="edad" 
+                   class="form-control" 
+                   min="18" 
+                   max="99" 
+                   required
+                   placeholder="Edad"
+                   value="<?= isset($anuncio['edad']) ? htmlspecialchars($anuncio['edad']) : ''; ?>">
+            <div class="invalid-feedback">La edad debe estar entre 18 y 99 años</div>
+        </div>
+    </div>
 
-                <div class="form-group">
-                    <label for="titulo" class="d-flex justify-content-between">
-                        <span>Título del Anuncio *</span>
-                        <small class="text-muted">Mínimo 40 caracteres</small>
-                    </label>
-                    <input type="text" name="titulo" id="titulo" class="form-control"
-                           minlength="40" required
-                           value="<?= htmlspecialchars($anuncio['titulo']); ?>">
-                </div>
+    <!-- Título -->
+    <div class="form-group mb-4">
+        <label for="titulo" class="form-label d-flex justify-content-between align-items-center">
+            <span>Título del Anuncio *</span>
+        </label>
+        <input type="text" 
+               name="titulo" 
+               id="titulo" 
+               class="form-control"
+               minlength="40"
+               maxlength="200"
+               required
+               placeholder="Escribe un título atractivo para tu anuncio"
+               value="<?= isset($anuncio['titulo']) ? htmlspecialchars($anuncio['titulo']) : ''; ?>">
+        <div class="invalid-feedback">El título debe tener entre 40 y 200 caracteres</div>
+        <div class="form-text text-end" id="tituloCaracteres">0 caracteres (mínimo 40)</div>
+    </div>
 
-                <div class="form-group">
-                    <label for="descripcion" class="d-flex justify-content-between">
-                        <span>Descripción *</span>
-                        <small class="text-muted">Mínimo 250 caracteres</small>
-                    </label>
-                    <textarea name="descripcion" id="descripcion" class="form-control"
-                              rows="5" minlength="250" required><?= htmlspecialchars($anuncio['descripcion']); ?></textarea>
-                </div>
-            </div>
+    <!-- Descripción -->
+    <div class="form-group mb-3">
+        <label for="descripcion" class="form-label d-flex justify-content-between align-items-center">
+            <span>Descripción *</span>
+        </label>
+        <textarea name="descripcion" 
+                  id="descripcion" 
+                  class="form-control"
+                  rows="5" 
+                  minlength="250"
+                  maxlength="2000"
+                  required
+                  placeholder="Describe detalladamente tu servicio..."
+        ><?= isset($anuncio['descripcion']) ? htmlspecialchars($anuncio['descripcion']) : ''; ?></textarea>
+        <div class="invalid-feedback">La descripción debe tener entre 250 y 2000 caracteres</div>
+        <div class="form-text text-end" id="descripcionCaracteres">0 caracteres (mínimo 250)</div>
+    </div>
+</div>
+
 
             <!-- Box 3: Imágenes -->
             <div class="box mb-4 p-4 border rounded shadow-sm">
@@ -660,33 +693,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <?php endforeach; ?>
                 </div>
             </div>
+<!-- Box 4: Contacto -->
+<div class="box mb-4 p-4 border rounded shadow-sm">
+    <h4 class="mb-3">Información de Contacto</h4>
+    
+    <!-- Teléfono -->
+    <div class="form-group mb-4">
+        <label for="telefono" class="form-label">Teléfono *</label>
+        <input type="text" 
+               name="telefono" 
+               id="telefono" 
+               class="form-control"
+               placeholder="+56 9 XXXX XXXX"
+               required 
+               value="<?= isset($anuncio['telefono']) ? htmlspecialchars($anuncio['telefono']) : ''; ?>">
+        <div class="invalid-feedback">Ingresa un número de teléfono válido</div>
+        <div class="form-text">Formato: +56 9 XXXX XXXX</div>
+    </div>
 
-            <!-- Box 4: Contacto -->
-            <div class="box mb-4 p-4 border rounded shadow-sm">
-                <h4 class="mb-3">Información de Contacto</h4>
-                <div class="form-group">
-                    <label for="telefono">Teléfono *</label>
-                    <input type="text" name="telefono" id="telefono" class="form-control"
-                           required value="<?= htmlspecialchars($anuncio['telefono']); ?>">
-                </div>
+    <!-- WhatsApp -->
+    <div class="form-group mb-4">
+        <div class="custom-control custom-switch">
+            <input type="checkbox" 
+                   class="custom-control-input" 
+                   id="whatsapp_switch" 
+                   name="whatsapp" 
+                   value="1"
+                   <?= isset($anuncio['whatsapp']) && $anuncio['whatsapp'] ? 'checked' : ''; ?>>
+            <label class="custom-control-label" for="whatsapp_switch">
+                <i class="fab fa-whatsapp text-success me-1"></i>
+                Activar WhatsApp
+            </label>
+        </div>
+        <small class="text-muted d-block mt-1">Marca esta opción si deseas recibir mensajes por WhatsApp</small>
+    </div>
 
-                <div class="form-group">
-                    <div class="custom-control custom-switch">
-                        <input type="checkbox" class="custom-control-input" 
-                               id="whatsapp_switch" name="whatsapp" value="1"
-                               <?= $anuncio['whatsapp'] ? 'checked' : ''; ?>>
-                        <label class="custom-control-label" for="whatsapp_switch">
-                            Activar WhatsApp
-                        </label>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="correo">Correo Electrónico *</label>
-                    <input type="email" name="correo" id="correo" class="form-control bg-light" required 
-                           value="<?= htmlspecialchars($anuncio['correo_electronico']); ?>" readonly>
-                </div>
-            </div>
+    <!-- Correo Electrónico -->
+    <div class="form-group mb-3">
+        <label for="correo" class="form-label">Correo Electrónico *</label>
+        <input type="email" 
+               name="correo" 
+               id="correo" 
+               class="form-control bg-light" 
+               required 
+               readonly
+               value="<?= htmlspecialchars($anuncio['correo_electronico']); ?>">
+    </div>
+</div>
 
             <div class="d-flex gap-2 mt-4 justify-content-center container-sm">
                 <button type="submit" class="btn btn-primary btn-sm px-4">
@@ -1048,6 +1101,49 @@ document.getElementById('telefono').addEventListener('input', function() {
         telefonoInput.setCustomValidity('');
     } else {
         telefonoInput.setCustomValidity('Por favor, ingresa un número de teléfono chileno válido.');
+    }
+});
+
+// Contador de caracteres para título
+document.getElementById('titulo').addEventListener('input', function() {
+    const caracteresActuales = this.value.length;
+    const contador = document.getElementById('tituloCaracteres');
+    contador.textContent = `${caracteresActuales} caracteres (mínimo 40)`;
+    
+    if (caracteresActuales < 40) {
+        contador.classList.add('text-danger');
+        contador.classList.remove('text-success');
+    } else {
+        contador.classList.add('text-success');
+        contador.classList.remove('text-danger');
+    }
+});
+
+// Contador de caracteres para descripción
+document.getElementById('descripcion').addEventListener('input', function() {
+    const caracteresActuales = this.value.length;
+    const contador = document.getElementById('descripcionCaracteres');
+    contador.textContent = `${caracteresActuales} caracteres (mínimo 250)`;
+    
+    if (caracteresActuales < 250) {
+        contador.classList.add('text-danger');
+        contador.classList.remove('text-success');
+    } else {
+        contador.classList.add('text-success');
+        contador.classList.remove('text-danger');
+    }
+});
+
+// Inicializar contadores si hay valores existentes
+window.addEventListener('load', function() {
+    const titulo = document.getElementById('titulo');
+    const descripcion = document.getElementById('descripcion');
+    
+    if (titulo.value) {
+        titulo.dispatchEvent(new Event('input'));
+    }
+    if (descripcion.value) {
+        descripcion.dispatchEvent(new Event('input'));
     }
 });
 
