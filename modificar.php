@@ -1,166 +1,10 @@
 <?php
-require_once '../includes/config.php';
-require_once 'functions.php';
+// Conexión a la base de datos y configuraciones iniciales
+include '../includes/config.php';
+include 'functions.php';
 
-// Clase de validación
-class Validator {
-    private $errors = [];
-    private $conn;
-
-    public function __construct($conn) {
-        $this->conn = $conn;
-    }
-
-    public function getErrors() {
-        return $this->errors;
-    }
-
-    public function hasErrors() {
-        return !empty($this->errors);
-    }
-
-    // Validar título
-    public function validateTitle($title) {
-        $title = trim($title);
-        if (strlen($title) < 40) {
-            $this->errors[] = "El título debe tener al menos 40 caracteres";
-            return false;
-        }
-        if (strlen($title) > 200) {
-            $this->errors[] = "El título no puede exceder los 200 caracteres";
-            return false;
-        }
-        if (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s.,!¡¿?-]+$/', $title)) {
-            $this->errors[] = "El título contiene caracteres no permitidos";
-            return false;
-        }
-        return true;
-    }
-
-    // Validar descripción
-    public function validateDescription($description) {
-        $description = trim($description);
-        if (strlen($description) < 250) {
-            $this->errors[] = "La descripción debe tener al menos 250 caracteres";
-            return false;
-        }
-        if (strlen($description) > 2000) {
-            $this->errors[] = "La descripción no puede exceder los 2000 caracteres";
-            return false;
-        }
-        return true;
-    }
-
-    // Validar edad
-    public function validateAge($age) {
-        $age = intval($age);
-        if ($age < 18 || $age > 99) {
-            $this->errors[] = "La edad debe estar entre 18 y 99 años";
-            return false;
-        }
-        return true;
-    }
-
-    // Validar teléfono
-    public function validatePhone($phone) {
-        if (!preg_match('/^\+56 (9 \d{4} \d{4}|2 \d{3} \d{4})$/', $phone)) {
-            $this->errors[] = "Formato de teléfono inválido";
-            return false;
-        }
-        return true;
-    }
-
-    // Validar email
-    public function validateEmail($email) {
-        $email = filter_var($email, FILTER_SANITIZE_EMAIL);
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $this->errors[] = "Correo electrónico inválido";
-            return false;
-        }
-        return true;
-    }
-
-    // Validar imágenes
-    public function validateImages($files, $existingImagesCount = 0) {
-        // Verificar si hay archivos
-        if (empty($files['tmp_name'][0]) && $existingImagesCount === 0) {
-            $this->errors[] = "Debe incluir al menos una imagen";
-            return false;
-        }
-
-        // Verificar límite total de imágenes
-        $totalImages = count($files['tmp_name']) + $existingImagesCount;
-        if ($totalImages > 8) {
-            $this->errors[] = "No puede tener más de 8 imágenes en total";
-            return false;
-        }
-
-        // Validar cada imagen nueva
-        foreach ($files['tmp_name'] as $index => $tmpName) {
-            if (!empty($tmpName)) {
-                // Verificar tamaño (5MB máximo)
-                if ($files['size'][$index] > 5 * 1024 * 1024) {
-                    $this->errors[] = "La imagen '{$files['name'][$index]}' excede el tamaño máximo permitido (5MB)";
-                    return false;
-                }
-
-                // Verificar tipo de archivo
-                $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-                if (!in_array($files['type'][$index], $allowedTypes)) {
-                    $this->errors[] = "El archivo '{$files['name'][$index]}' no es un tipo de imagen permitido";
-                    return false;
-                }
-
-                // Verificar si es una imagen válida
-                if (!getimagesize($tmpName)) {
-                    $this->errors[] = "El archivo '{$files['name'][$index]}' no es una imagen válida";
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    // Validar categoría
-    public function validateCategory($categoryId) {
-        $stmt = $this->conn->prepare("SELECT COUNT(*) FROM categorias WHERE id = ?");
-        $stmt->bind_param("i", $categoryId);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        if ($result->fetch_row()[0] == 0) {
-            $this->errors[] = "Categoría inválida";
-            return false;
-        }
-        return true;
-    }
-
-    // Validar ciudad y comuna
-    public function validateLocation($cityId, $communeId) {
-        // Validar ciudad
-        $stmt = $this->conn->prepare("SELECT COUNT(*) FROM ciudades WHERE id = ?");
-        $stmt->bind_param("i", $cityId);
-        $stmt->execute();
-        if ($stmt->get_result()->fetch_row()[0] == 0) {
-            $this->errors[] = "Ciudad inválida";
-            return false;
-        }
-
-        // Validar comuna y su relación con la ciudad
-        $stmt = $this->conn->prepare("SELECT COUNT(*) FROM comunas WHERE id = ? AND ciudad_id = ?");
-        $stmt->bind_param("ii", $communeId, $cityId);
-        $stmt->execute();
-        if ($stmt->get_result()->fetch_row()[0] == 0) {
-            $this->errors[] = "Comuna inválida o no pertenece a la ciudad seleccionada";
-            return false;
-        }
-
-        return true;
-    }
-}
-
-// Verificar sesión
 session_start();
+
 if (!isset($_SESSION['usuario_id'])) {
     header("Location: ../login.php");
     exit;
@@ -195,7 +39,14 @@ $stmtImagenes->execute();
 $resultImagenes = $stmtImagenes->get_result();
 $imagenesAnuncio = $resultImagenes->fetch_all(MYSQLI_ASSOC);
 
-// Procesar solicitud AJAX para comunas
+// Obtener ciudades y categorías
+$queryCiudades = "SELECT id, nombre FROM ciudades ORDER BY nombre";
+$resultCiudades = $conn->query($queryCiudades);
+
+$queryCategorias = "SELECT id, nombre FROM categorias";
+$resultCategorias = $conn->query($queryCategorias);
+
+// Manejar solicitud AJAX para comunas
 if (isset($_GET['ciudad_id'])) {
     $ciudad_id = intval($_GET['ciudad_id']);
     $query = "SELECT id, nombre FROM comunas WHERE ciudad_id = ? ORDER BY nombre";
@@ -211,124 +62,138 @@ if (isset($_GET['ciudad_id'])) {
     exit;
 }
 
-// Procesar formulario
+// Procesamiento del formulario
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
-        $validator = new Validator($conn);
-        
-        // Validar todos los campos
-        $isValid = true;
-        $isValid &= $validator->validateTitle($_POST['titulo']);
-        $isValid &= $validator->validateDescription($_POST['descripcion']);
-        $isValid &= $validator->validateAge($_POST['edad']);
-        $isValid &= $validator->validatePhone($_POST['telefono']);
-        $isValid &= $validator->validateEmail($_POST['correo']);
-        $isValid &= $validator->validateCategory($_POST['categoria_id']);
-        $isValid &= $validator->validateLocation($_POST['ciudad_id'], $_POST['comuna_id']);
-
-        // Contar imágenes existentes que no serán eliminadas
-        $imagenesEliminadas = json_decode($_POST['imagenes_eliminadas'], true) ?? [];
-        $queryExistingImages = "SELECT COUNT(*) FROM imagenes_anuncios WHERE anuncio_id = ? AND id NOT IN (" . 
-            implode(',', array_map('intval', $imagenesEliminadas)) . ")";
-        $stmtExisting = $conn->prepare($queryExistingImages);
-        $stmtExisting->bind_param('i', $anuncio_id);
-        $stmtExisting->execute();
-        $existingImagesCount = $stmtExisting->get_result()->fetch_row()[0];
-
-        $isValid &= $validator->validateImages($_FILES['imagenes'], $existingImagesCount);
-
-        if (!$isValid) {
-            throw new Exception(implode("<br>", $validator->getErrors()));
-        }
-
         $conn->begin_transaction();
 
-        // Actualizar datos básicos del anuncio
+        // Sanitización y validación de datos básicos
+        $categoria_id = intval($_POST['categoria_id']);
+        $comuna_id = intval($_POST['comuna_id']);
+        $ciudad_id = intval($_POST['ciudad_id']);
+        $edad = intval($_POST['edad']);
+        $titulo = htmlspecialchars(trim($_POST['titulo']));
+        $descripcion = htmlspecialchars(trim($_POST['descripcion']));
+        $telefono = htmlspecialchars(trim($_POST['telefono']));
+        $whatsapp = isset($_POST['whatsapp']) ? 1 : 0;
+        $correo = filter_var(trim($_POST['correo']), FILTER_SANITIZE_EMAIL);
+
+        // Validaciones básicas
+        if (empty($titulo) || empty($descripcion) || empty($telefono) || empty($correo)) {
+            throw new Exception("Todos los campos son obligatorios");
+        }
+
+        if (!filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+            throw new Exception("Correo electrónico inválido");
+        }
+
+        // Actualizar datos del anuncio
         $query = "UPDATE anuncios SET 
                   categoria_id = ?, comuna_id = ?, ciudad_id = ?, edad = ?, 
                   titulo = ?, descripcion = ?, telefono = ?, whatsapp = ?, 
                   correo_electronico = ? 
                   WHERE id = ? AND usuario_id = ?";
-        
         $stmt = $conn->prepare($query);
-        $whatsapp = isset($_POST['whatsapp']) ? 1 : 0;
-        
-        $stmt->bind_param('iiiisssisii', 
-            $_POST['categoria_id'],
-            $_POST['comuna_id'],
-            $_POST['ciudad_id'],
-            $_POST['edad'],
-            $_POST['titulo'],
-            $_POST['descripcion'],
-            $_POST['telefono'],
-            $whatsapp,
-            $_POST['correo'],
-            $anuncio_id,
-            $usuario_id
+        $stmt->bind_param('iiiissssiii', 
+            $categoria_id, $comuna_id, $ciudad_id, $edad, 
+            $titulo, $descripcion, $telefono, $whatsapp, 
+            $correo, $anuncio_id, $usuario_id
         );
-        
         $stmt->execute();
 
         // Procesar imágenes eliminadas
-        if (!empty($imagenesEliminadas)) {
-            foreach ($imagenesEliminadas as $imagenId) {
-                $querySelectImage = "SELECT url_imagen FROM imagenes_anuncios WHERE id = ? AND anuncio_id = ?";
-                $stmtSelectImage = $conn->prepare($querySelectImage);
-                $stmtSelectImage->bind_param('ii', $imagenId, $anuncio_id);
-                $stmtSelectImage->execute();
-                $resultSelectImage = $stmtSelectImage->get_result();
+        $imagenesEliminadas = json_decode($_POST['imagenes_eliminadas'], true);
+        foreach ($imagenesEliminadas as $imagenId) {
+            $querySelectImage = "SELECT url_imagen FROM imagenes_anuncios WHERE id = ? AND anuncio_id = ?";
+            $stmtSelectImage = $conn->prepare($querySelectImage);
+            $stmtSelectImage->bind_param('ii', $imagenId, $anuncio_id);
+            $stmtSelectImage->execute();
+            $resultSelectImage = $stmtSelectImage->get_result();
+            
+            if ($row = $resultSelectImage->fetch_assoc()) {
+                $imagePath = $row['url_imagen'];
                 
-                if ($row = $resultSelectImage->fetch_assoc()) {
-                    $imagePath = $row['url_imagen'];
-                    
-                    $queryDeleteImage = "DELETE FROM imagenes_anuncios WHERE id = ? AND anuncio_id = ?";
-                    $stmtDeleteImage = $conn->prepare($queryDeleteImage);
-                    $stmtDeleteImage->bind_param('ii', $imagenId, $anuncio_id);
-                    $stmtDeleteImage->execute();
+                // Eliminar registro de la base de datos
+                $queryDeleteImage = "DELETE FROM imagenes_anuncios WHERE id = ? AND anuncio_id = ?";
+                $stmtDeleteImage = $conn->prepare($queryDeleteImage);
+                $stmtDeleteImage->bind_param('ii', $imagenId, $anuncio_id);
+                $stmtDeleteImage->execute();
 
-                    if (file_exists($imagePath)) {
-                        unlink($imagePath);
-                    }
+                // Eliminar archivo físico
+                if (file_exists($imagePath)) {
+                    unlink($imagePath);
                 }
             }
         }
 
-        // Procesar nuevas imágenes
+        // Procesar imágenes nuevas
         if (!empty($_FILES['imagenes']['tmp_name'][0])) {
-            $uploadDir = '../uploads/';
-            if (!file_exists($uploadDir)) {
-                mkdir($uploadDir, 0777, true);
-            }
+            $imagenesNuevas = [];
+            $imagenesHash = []; // Array para control de duplicados
 
             foreach ($_FILES['imagenes']['tmp_name'] as $index => $tmpName) {
-                if (!empty($tmpName)) {
+                if ($tmpName && is_uploaded_file($tmpName)) {
+                    // Calcular hash del archivo
                     $fileHash = md5_file($tmpName);
                     
-                    // Verificar duplicado por hash
-                    $queryCheckHash = "SELECT COUNT(*) FROM imagenes_anuncios 
+                    // Verificar duplicado en memoria
+                    if (in_array($fileHash, $imagenesHash)) {
+                        continue;
+                    }
+
+                    // Verificar duplicado en base de datos
+                    $queryCheckHash = "SELECT COUNT(*) as count FROM imagenes_anuncios 
                                      WHERE anuncio_id = ? AND hash = ?";
                     $stmtCheckHash = $conn->prepare($queryCheckHash);
                     $stmtCheckHash->bind_param('is', $anuncio_id, $fileHash);
                     $stmtCheckHash->execute();
-                    
-                    if ($stmtCheckHash->get_result()->fetch_row()[0] > 0) {
-                        continue; // Saltar si es duplicado
+                    $resultHash = $stmtCheckHash->get_result();
+                    if ($resultHash->fetch_assoc()['count'] > 0) {
+                        continue;
                     }
 
-                    $fileName = uniqid() . '_' . basename($_FILES['imagenes']['name'][$index]);
-                    $targetPath = $uploadDir . $fileName;
+                    // Validaciones de archivo
+                    if ($_FILES['imagenes']['size'][$index] > 5 * 1024 * 1024) {
+                        continue;
+                    }
 
-                    if (move_uploaded_file($tmpName, $targetPath)) {
+                    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+                    if (!in_array($_FILES['imagenes']['type'][$index], $allowedTypes)) {
+                        continue;
+                    }
+
+                    // Procesar imagen
+                    $nombreArchivo = uniqid() . '_' . basename($_FILES['imagenes']['name'][$index]);
+                    $rutaDestino = '../uploads/' . $nombreArchivo;
+
+                    if (move_uploaded_file($tmpName, $rutaDestino)) {
                         // Agregar marca de agua
-                        addTextWatermark($targetPath, "INFOESCORT.CL", $targetPath);
-
-                        // Insertar en la base de datos
-                        $queryImg = "INSERT INTO imagenes_anuncios (anuncio_id, url_imagen, principal, hash) 
-                                   VALUES (?, ?, 0, ?)";
-                        $stmtImg = $conn->prepare($queryImg);
-                        $stmtImg->bind_param('iss', $anuncio_id, $targetPath, $fileHash);
-                        $stmtImg->execute();
+                        addTextWatermark($rutaDestino, "INFOESCORT.CL", $rutaDestino);
+                        
+                        $imagenesHash[] = $fileHash;
+                        $imagenesNuevas[] = [
+                            'ruta' => $rutaDestino,
+                            'principal' => 0,
+                            'hash' => $fileHash
+                        ];
                     }
+                }
+            }
+
+            // Insertar imágenes nuevas
+            if (!empty($imagenesNuevas)) {
+                $queryImg = "INSERT INTO imagenes_anuncios (anuncio_id, url_imagen, principal, hash) 
+                            VALUES (?, ?, ?, ?)";
+                $stmtImg = $conn->prepare($queryImg);
+
+                foreach ($imagenesNuevas as $imagen) {
+                    $stmtImg->bind_param('isis', 
+                        $anuncio_id, 
+                        $imagen['ruta'], 
+                        $imagen['principal'],
+                        $imagen['hash']
+                    );
+                    $stmtImg->execute();
                 }
             }
         }
@@ -338,7 +203,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $imagen_principal_id = intval($_POST['imagen_principal']);
             
             // Resetear todas las imágenes como no principales
-            $queryResetMain = "UPDATE imagenes_anuncios SET principal = 0 WHERE anuncio_id = ?";
+            $queryResetMain = "UPDATE imagenes_anuncios SET principal = 0 
+                             WHERE anuncio_id = ?";
             $stmtResetMain = $conn->prepare($queryResetMain);
             $stmtResetMain->bind_param('i', $anuncio_id);
             $stmtResetMain->execute();
@@ -361,14 +227,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 }
-
-// Obtener datos para los selects
-$queryCiudades = "SELECT id, nombre FROM ciudades ORDER BY nombre";
-$resultCiudades = $conn->query($queryCiudades);
-
-$queryCategorias = "SELECT id, nombre FROM categorias";
-$resultCategorias = $conn->query($queryCategorias);
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -790,7 +650,7 @@ $resultCategorias = $conn->query($queryCategorias);
                             <button type="button" 
                                     class="mark-main <?= $imagen['principal'] ? 'active' : ''; ?>"
                                     onclick="setMainImage(<?= $index; ?>)">
-                                <?= $imagen['principal'] ? 'Principal' : 'Principal'; ?>
+                                <?= $imagen['principal'] ? 'Principal' : 'Marcar como Principal'; ?>
                             </button>
                             <button type="button" class="remove-image"
                                     onclick="removeImage(<?= $index; ?>)">
@@ -816,27 +676,34 @@ $resultCategorias = $conn->query($queryCategorias);
                                id="whatsapp_switch" name="whatsapp" value="1"
                                <?= $anuncio['whatsapp'] ? 'checked' : ''; ?>>
                         <label class="custom-control-label" for="whatsapp_switch">
-                                WhatsApp
+                            Activar WhatsApp
                         </label>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label for="correo">Correo Electrónico *</label>
-                    <input type="email" name="correo" id="correo" class="form-control"
-                           required value="<?= htmlspecialchars($anuncio['correo_electronico']); ?>">
+                    <input type="email" name="correo" id="correo" class="form-control bg-light" required 
+                           value="<?= htmlspecialchars($anuncio['correo_electronico']); ?>" readonly>
                 </div>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-block mt-4">
-                <i class="fas fa-save mr-2"></i>
-                Guardar Cambios
-            </button>
-            
+            <div class="d-flex gap-2 mt-4 justify-content-center container-sm">
+                <button type="submit" class="btn btn-primary btn-sm px-4">
+                    <i class="fas fa-save me-2"></i>
+                    Guardar
+                </button>
+                <a href="index.php" class="btn btn-secondary btn-sm px-4">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Volver
+                </a>
+            </div>
         </form>
     </div>
 
     <?php include '../includes/footer.php'; ?>
+</body>
+</html>
 
 <script>
 // Constantes
@@ -847,71 +714,21 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif'];
 // Variables globales
 let images = [];
 let processedFiles = new Set();
-let uploadedHashes = new Set();
+let uploadedHashes = new Set(); // Nuevo: para controlar hashes de imágenes
 
-// Inicializar imágenes existentes desde PHP
-document.addEventListener('DOMContentLoaded', function() {
-    // Las imágenes existentes se cargarán desde el PHP mediante un script inline
-    updateMainImageInput();
-    initializeValidations();
-});
-
-// Funciones de validación
-const validations = {
-    validateTitle: (title) => {
-        const minLength = 40;
-        const maxLength = 200;
-        if (title.length < minLength) {
-            return `El título debe tener al menos ${minLength} caracteres`;
-        }
-        if (title.length > maxLength) {
-            return `El título no puede exceder los ${maxLength} caracteres`;
-        }
-        if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s.,!¡¿?-]+$/.test(title)) {
-            return 'El título contiene caracteres no permitidos';
-        }
-        return '';
-    },
-
-    validateDescription: (description) => {
-        const minLength = 250;
-        const maxLength = 2000;
-        if (description.length < minLength) {
-            return `La descripción debe tener al menos ${minLength} caracteres`;
-        }
-        if (description.length > maxLength) {
-            return `La descripción no puede exceder los ${maxLength} caracteres`;
-        }
-        return '';
-    },
-
-    validateAge: (age) => {
-        const ageNum = parseInt(age);
-        if (isNaN(ageNum) || ageNum < 18 || ageNum > 99) {
-            return 'La edad debe estar entre 18 y 99 años';
-        }
-        if (!Number.isInteger(ageNum)) {
-            return 'La edad debe ser un número entero';
-        }
-        return '';
-    },
-
-    validatePhone: (phone) => {
-        const phonePattern = /^\+56 (9 \d{4} \d{4}|2 \d{3} \d{4})$/;
-        if (!phonePattern.test(phone)) {
-            return 'Ingresa un número de teléfono chileno válido';
-        }
-        return '';
-    },
-
-    validateEmail: (email) => {
-        const emailPattern = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
-        if (!emailPattern.test(email)) {
-            return 'Ingresa un correo electrónico válido';
-        }
-        return '';
-    }
-};
+// Inicializar imágenes existentes
+<?php foreach ($imagenesAnuncio as $imagen): ?>
+    images.push({
+        id: <?= $imagen['id']; ?>,
+        src: "<?= htmlspecialchars($imagen['url_imagen']); ?>",
+        isMain: <?= $imagen['principal'] ? 'true' : 'false'; ?>,
+        hash: "<?= $imagen['hash'] ?? ''; ?>",
+        processed: true
+    });
+    <?php if (!empty($imagen['hash'])): ?>
+        uploadedHashes.add("<?= $imagen['hash']; ?>");
+    <?php endif; ?>
+<?php endforeach; ?>
 
 // Funciones de utilidad
 function showLoading() {
@@ -931,7 +748,7 @@ function hideLoading() {
     }
 }
 
-async function calculateFileHash(file) {
+function calculateFileHash(file) {
     return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -943,38 +760,38 @@ async function calculateFileHash(file) {
     });
 }
 
-function showValidationFeedback(element, error) {
-    const feedbackDiv = element.nextElementSibling;
-    if (error) {
-        element.classList.add('is-invalid');
-        element.classList.remove('is-valid');
-        if (feedbackDiv && feedbackDiv.classList.contains('invalid-feedback')) {
-            feedbackDiv.textContent = error;
-        } else {
-            const div = document.createElement('div');
-            div.className = 'invalid-feedback';
-            div.textContent = error;
-            element.parentNode.insertBefore(div, element.nextSibling);
-        }
-    } else {
-        element.classList.remove('is-invalid');
-        element.classList.add('is-valid');
-        if (feedbackDiv) {
-            feedbackDiv.textContent = '';
-        }
+async function validateFile(file) {
+    if (!validateFileSize(file)) {
+        return false;
     }
+    if (!validateFileType(file)) {
+        return false;
+    }
+
+    // Verificar hash del archivo
+    const hash = await calculateFileHash(file);
+    if (uploadedHashes.has(hash)) {
+        alert('Esta imagen ya ha sido subida anteriormente.');
+        return false;
+    }
+    uploadedHashes.add(hash);
+    return true;
 }
 
-function updateCharacterCount(element, min, max) {
-    let counterDiv = element.parentNode.querySelector('.character-count');
-    if (!counterDiv) {
-        counterDiv = document.createElement('small');
-        counterDiv.className = 'character-count text-muted';
-        element.parentNode.appendChild(counterDiv);
+function validateFileSize(file) {
+    if (file.size > MAX_FILE_SIZE) {
+        alert(`El archivo ${file.name} es demasiado grande. Máximo 5MB permitido.`);
+        return false;
     }
-    const current = element.value.length;
-    counterDiv.textContent = `${current}/${max} caracteres (mínimo ${min})`;
-    counterDiv.className = `character-count text-${current < min ? 'danger' : 'muted'}`;
+    return true;
+}
+
+function validateFileType(file) {
+    if (!ALLOWED_TYPES.includes(file.type)) {
+        alert(`El archivo ${file.name} no es un tipo de imagen permitido.`);
+        return false;
+    }
+    return true;
 }
 
 // Manejo de imágenes
@@ -987,42 +804,30 @@ async function handleFiles(files) {
     for (const file of Array.from(files)) {
         const fileId = `${file.name}-${file.size}-${file.lastModified}`;
         
+        // Verificar si el archivo ya ha sido procesado
         if (processedFiles.has(fileId)) {
+            console.log('Archivo ya procesado:', fileId);
             continue;
         }
 
-        if (file.size > MAX_FILE_SIZE) {
-            alert(`El archivo ${file.name} excede el tamaño máximo permitido (5MB)`);
-            continue;
-        }
-
-        if (!ALLOWED_TYPES.includes(file.type)) {
-            alert(`El archivo ${file.name} no es un tipo de imagen permitido`);
-            continue;
-        }
-
-        const hash = await calculateFileHash(file);
-        if (uploadedHashes.has(hash)) {
-            alert('Esta imagen ya ha sido subida anteriormente.');
-            continue;
-        }
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const imgObject = {
-                src: e.target.result,
-                file: file,
-                isMain: images.length === 0,
-                fileId: fileId,
-                processed: false,
-                hash: hash
+        if (await validateFile(file)) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const imgObject = {
+                    src: e.target.result,
+                    file: file,
+                    isMain: images.length === 0,
+                    fileId: fileId,
+                    processed: false,
+                    hash: null // Se establecerá después
+                };
+                images.push(imgObject);
+                processedFiles.add(fileId);
+                console.log('Nueva imagen agregada:', imgObject);
+                renderImages();
             };
-            images.push(imgObject);
-            processedFiles.add(fileId);
-            uploadedHashes.add(hash);
-            renderImages();
-        };
-        reader.readAsDataURL(file);
+            reader.readAsDataURL(file);
+        }
     }
 }
 
@@ -1058,6 +863,9 @@ function removeImage(index) {
         
         renderImages();
         updateMainImageInput();
+        
+        console.log('Imagen eliminada:', removedImage);
+        console.log('Imágenes restantes:', images);
     }
 }
 
@@ -1084,14 +892,14 @@ function renderImages() {
         if (image.isMain) {
             markMainButton.classList.add('active');
         }
-        markMainButton.onclick = () => setMainImage(index);
+        markMainButton.addEventListener('click', () => setMainImage(index));
         imageItem.appendChild(markMainButton);
 
         const removeButton = document.createElement('button');
         removeButton.type = 'button';
         removeButton.textContent = 'Eliminar';
         removeButton.classList.add('remove-image');
-        removeButton.onclick = () => removeImage(index);
+        removeButton.addEventListener('click', () => removeImage(index));
         imageItem.appendChild(removeButton);
 
         previewContainer.appendChild(imageItem);
@@ -1103,80 +911,89 @@ function updateMainImageInput() {
     document.getElementById('imagen_principal').value = mainImage?.id || '';
 }
 
-// Inicialización y eventos
-function initializeValidations() {
-    const titleInput = document.getElementById('titulo');
-    const descriptionInput = document.getElementById('descripcion');
-    const ageInput = document.getElementById('edad');
-    const phoneInput = document.getElementById('telefono');
-    const emailInput = document.getElementById('correo');
-    const dropArea = document.getElementById('drop-area');
-    const fileInput = document.getElementById('imagenes');
+// Event Listeners
+const dropArea = document.getElementById('drop-area');
+const fileInput = document.getElementById('imagenes');
 
-    titleInput.addEventListener('input', function() {
-        const error = validations.validateTitle(this.value);
-        showValidationFeedback(this, error);
-        updateCharacterCount(this, 40, 200);
-    });
+dropArea.addEventListener('click', () => fileInput.click());
 
-    descriptionInput.addEventListener('input', function() {
-        const error = validations.validateDescription(this.value);
-        showValidationFeedback(this, error);
-        updateCharacterCount(this, 250, 2000);
-    });
+dropArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropArea.classList.add('dragover');
+});
 
-    ageInput.addEventListener('input', function() {
-        const error = validations.validateAge(this.value);
-        showValidationFeedback(this, error);
-    });
+dropArea.addEventListener('dragleave', () => {
+    dropArea.classList.remove('dragover');
+});
 
-    phoneInput.addEventListener('input', function() {
-        const rawValue = this.value.replace(/\D/g, '');
-        let formattedValue = '';
+dropArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropArea.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+});
 
-        if (rawValue.startsWith('56')) {
-            if (rawValue.length === 11) {
-                formattedValue = `+56 ${rawValue[2]} ${rawValue.slice(3, 7)} ${rawValue.slice(7)}`;
-            } else if (rawValue.length === 10) {
-                formattedValue = `+56 ${rawValue[2]} ${rawValue.slice(3, 6)} ${rawValue.slice(6)}`;
-            }
-        } else if (rawValue.startsWith('9') && rawValue.length === 9) {
-            formattedValue = `+56 9 ${rawValue.slice(1, 5)} ${rawValue.slice(5)}`;
-        } else if (rawValue.startsWith('2') && rawValue.length === 9) {
-            formattedValue = `+56 2 ${rawValue.slice(1, 4)} ${rawValue.slice(4)}`;
-        } else {
-            formattedValue = rawValue;
+fileInput.addEventListener('change', (e) => {
+    handleFiles(e.target.files);
+});
+
+// Manejo del formulario
+document.getElementById('modificarForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    if (images.length === 0) {
+        alert('Debes tener al menos una imagen en el anuncio');
+        return;
+    }
+
+    if (!images.some(img => img.isMain)) {
+        alert('Debes seleccionar una imagen principal');
+        return;
+    }
+
+    showLoading();
+
+    const formData = new FormData(this);
+
+    // Limpiar imágenes anteriores del FormData
+    formData.delete('imagenes[]');
+
+    // Agregar solo las imágenes nuevas no procesadas
+    let hasNewImages = false;
+    for (const image of images) {
+        if (image.file && !image.processed) {
+            formData.append('imagenes[]', image.file);
+            image.processed = true;
+            hasNewImages = true;
+            console.log('Agregando nueva imagen:', image.file.name);
+        }
+    }
+
+    console.log('Número de imágenes nuevas:', formData.getAll('imagenes[]').length);
+
+    try {
+        const response = await fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        });
+
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.message);
         }
 
-        this.value = formattedValue;
-        const error = validations.validatePhone(formattedValue);
-        showValidationFeedback(this, error);
-    });
+        alert('Anuncio actualizado correctamente');
+        window.location.href = 'index.php';
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al actualizar el anuncio: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+});
 
-    emailInput.addEventListener('input', function() {
-        const error = validations.validateEmail(this.value);
-        showValidationFeedback(this, error);
-    });
-
-    dropArea.addEventListener('click', () => fileInput.click());
-    dropArea.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropArea.classList.add('dragover');
-    });
-    dropArea.addEventListener('dragleave', () => {
-        dropArea.classList.remove('dragover');
-    });
-    dropArea.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropArea.classList.remove('dragover');
-        handleFiles(e.dataTransfer.files);
-    });
-    fileInput.addEventListener('change', (e) => {
-        handleFiles(e.target.files);
-    });
-}
-
-// Función para filtrar comunas
+// Filtrado de comunas
 function filtrarComunas() {
     const ciudadId = document.getElementById('ciudad_id').value;
     const comunaSelect = document.getElementById('comuna_id');
@@ -1204,56 +1021,36 @@ function filtrarComunas() {
         });
 }
 
-// Manejo del formulario
-document.getElementById('modificarForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
+// Validación del teléfono
+document.getElementById('telefono').addEventListener('input', function() {
+    const telefonoInput = this;
+    const rawValue = telefonoInput.value.replace(/\D/g, '');
+    let formattedValue = '';
 
-    if (images.length === 0) {
-        alert('Debes tener al menos una imagen en el anuncio');
-        return;
-    }
-
-    if (!images.some(img => img.isMain)) {
-        alert('Debes seleccionar una imagen principal');
-        return;
-    }
-
-    showLoading();
-
-    const formData = new FormData(this);
-    formData.delete('imagenes[]');
-
-    let hasNewImages = false;
-    for (const image of images) {
-        if (image.file && !image.processed) {
-            formData.append('imagenes[]', image.file);
-            image.processed = true;
-            hasNewImages = true;
+    if (rawValue.startsWith('56')) {
+        if (rawValue.length === 11) {
+            formattedValue = `+56 ${rawValue[2]} ${rawValue.slice(3, 7)} ${rawValue.slice(7)}`;
+        } else if (rawValue.length === 10) {
+            formattedValue = `+56 ${rawValue[2]} ${rawValue.slice(3, 6)} ${rawValue.slice(6)}`;
         }
+    } else if (rawValue.startsWith('9') && rawValue.length === 9) {
+        formattedValue = `+56 9 ${rawValue.slice(1, 5)} ${rawValue.slice(5)}`;
+    } else if (rawValue.startsWith('2') && rawValue.length === 9) {
+        formattedValue = `+56 2 ${rawValue.slice(1, 4)} ${rawValue.slice(4)}`;
+    } else {
+        formattedValue = rawValue;
     }
 
-    try {
-        const response = await fetch(this.action, {
-            method: 'POST',
-            body: formData,
-            credentials: 'same-origin'
-        });
+    telefonoInput.value = formattedValue;
 
-        const data = await response.json();
-        
-        if (!data.success) {
-            throw new Error(data.message);
-        }
-
-        alert('Anuncio actualizado correctamente');
-        window.location.href = 'index.php';
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Error al actualizar el anuncio: ' + error.message);
-    } finally {
-        hideLoading();
+    const telefonoPattern = /^\+56 (9 \d{4} \d{4}|2 \d{3} \d{4})$/;
+    if (telefonoPattern.test(formattedValue)) {
+        telefonoInput.setCustomValidity('');
+    } else {
+        telefonoInput.setCustomValidity('Por favor, ingresa un número de teléfono chileno válido.');
     }
 });
+
+// Inicialización
+updateMainImageInput();
 </script>
-</body>
-</html>     
