@@ -13,6 +13,15 @@ if (!isset($_SESSION['usuario_id'])) {
 
 $usuario_id = $_SESSION['usuario_id'];
 
+// consulta para obtener el email del usuario
+$queryUsuario = "SELECT email FROM usuarios WHERE id = ?";
+$stmtUsuario = $conn->prepare($queryUsuario);
+$stmtUsuario->bind_param('i', $usuario_id);
+$stmtUsuario->execute();
+$resultUsuario = $stmtUsuario->get_result();
+$usuario = $resultUsuario->fetch_assoc();
+$emailUsuario = $usuario['email'];
+
 // Manejar solicitudes AJAX para filtrar comunas
 if (isset($_GET['ciudad_id'])) {
     $ciudad_id = intval($_GET['ciudad_id']);
@@ -371,71 +380,121 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <h2 class="text-center mb-4">Publicar Anuncio</h2>
     <form action="" method="POST" enctype="multipart/form-data" id="publicarForm">
         <!-- Box 1: Categoría, Ciudad y Comuna -->
-        <div class="box mb-4 p-4 border rounded shadow-sm">
-            <h4 class="mb-3">Ubicación del Anuncio</h4>
-            <div class="mb-3">
-                <label for="categoria_id" class="form-label">Categoría</label>
-                <select name="categoria_id" id="categoria_id" class="form-control" required>
-                    <option value="" disabled selected>Selecciona una categoría</option>
-                    <?php while ($categoria = $resultCategorias->fetch_assoc()): ?>
-                        <option value="<?= $categoria['id'] ?>"><?= htmlspecialchars($categoria['nombre']) ?></option>
-                    <?php endwhile; ?>
-                </select>
-            </div>
+<div class="box mb-4 p-4 border rounded shadow-sm">
+    <h4 class="mb-3">Ubicación del Anuncio</h4>
+    
+    <!-- Categoría -->
+    <div class="mb-4">
+        <label for="categoria_id" class="form-label">Categoría *</label>
+        <select name="categoria_id" id="categoria_id" class="form-control" required>
+            <option value="" disabled selected>Selecciona una categoría</option>
+            <?php while ($categoria = $resultCategorias->fetch_assoc()): ?>
+                <option value="<?= htmlspecialchars($categoria['id']) ?>">
+                    <?= htmlspecialchars($categoria['nombre']) ?>
+                </option>
+            <?php endwhile; ?>
+        </select>
+        <div class="invalid-feedback">Por favor selecciona una categoría</div>
+    </div>
+    
+    <!-- Ciudad y Comuna en grid -->
+    <div class="row g-3"> <!-- g-3 para espaciado entre columnas -->
+        <!-- Ciudad -->
+        <div class="col-md-6">
+            <label for="ciudad_id" class="form-label">Ciudad *</label>
+            <select name="ciudad_id" 
+                    id="ciudad_id" 
+                    class="form-control" 
+                    onchange="filtrarComunas()" 
+                    required>
+                <option value="" disabled selected>Selecciona una ciudad</option>
+                <?php while ($ciudad = $resultCiudades->fetch_assoc()): ?>
+                    <option value="<?= htmlspecialchars($ciudad['id']) ?>">
+                        <?= htmlspecialchars($ciudad['nombre']) ?>
+                    </option>
+                <?php endwhile; ?>
+            </select>
+            <div class="invalid-feedback">Por favor selecciona una ciudad</div>
+        </div>
         
-            <div class="row"> <!-- Agregamos un row para el grid -->
-                <div class="col-md-6"> <!-- Primera columna (6/12) -->
-                    <div class="mb-3">
-                        <label for="ciudad_id" class="form-label">Ciudad</label>
-                        <select name="ciudad_id" id="ciudad_id" class="form-control" onchange="filtrarComunas()" required>
-                            <option value="" disabled selected>Selecciona una ciudad</option>
-                            <?php while ($ciudad = $resultCiudades->fetch_assoc()): ?>
-                                <option value="<?= $ciudad['id'] ?>"><?= htmlspecialchars($ciudad['nombre']) ?></option>
-                            <?php endwhile; ?>
-                        </select>
-                    </div>
-                </div>
-                <div class="col-md-6"> <!-- Segunda columna (6/12) -->
-                    <div class="mb-3">
-                        <label for="comuna_id" class="form-label">Comuna</label>
-                        <select name="comuna_id" id="comuna_id" class="form-control" required>
-                            <option value="" disabled selected>Primero selecciona una ciudad</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
+        <!-- Comuna -->
+        <div class="col-md-6">
+            <label for="comuna_id" class="form-label">Comuna *</label>
+            <select name="comuna_id" 
+                    id="comuna_id" 
+                    class="form-control" 
+                    required>
+                <option value="" disabled selected>Primero selecciona una ciudad</option>
+            </select>
+            <div class="invalid-feedback">Por favor selecciona una comuna</div>
         </div>
+    </div>
 
-        <!-- Box 2: Edad, Título y Descripción -->
-        <div class="box mb-4 p-4 border rounded shadow-sm">
-            <h4 class="mb-3">Detalles del Anuncio</h4>
-            <div class="form-group mb-3">
-                <label for="edad" class="form-label">Edad</label>
-                <input type="number" class="form-control" id="edad" name="edad" 
-                       required min="18" max="99" style="max-width: 100px;">
-                <div class="invalid-feedback"></div>
-            </div>
+    <!-- Indicador de campos requeridos -->
+    <div class="mt-2">
+        <small class="text-muted">* Campos obligatorios</small>
+    </div>
+</div>
 
-            <div class="form-group mb-3">
-                <label for="titulo" class="form-label d-flex justify-content-between">
-                    <span>Título del Anuncio</span>
-                    <small class="text-muted">Mínimo 40 caracteres</small>
-                </label>
-                <input type="text" class="form-control" id="titulo" name="titulo" 
-                       required minlength="40" maxlength="200">
-                <div class="invalid-feedback"></div>
-            </div>
+<!-- Box 2: Edad, Título y Descripción -->
+<div class="box mb-4 p-4 border rounded shadow-sm">
+    <h4 class="mb-3">Detalles del Anuncio</h4>
+    
+    <!-- Edad -->
+    <div class="form-group mb-4">
+        <label for="edad" class="form-label">Edad *</label>
+        <input type="number" 
+               class="form-control" 
+               id="edad" 
+               name="edad" 
+               required 
+               min="18" 
+               max="99" 
+               style="max-width: 100px;"
+               placeholder="18-99">
+        <div class="invalid-feedback">La edad debe estar entre 18 y 99 años</div>
+    </div>
 
-            <div class="form-group mb-3">
-                <label for="descripcion" class="form-label d-flex justify-content-between">
-                    <span>Descripción</span>
-                    <small class="text-muted">Mínimo 250 caracteres</small>
-                </label>
-                <textarea class="form-control" id="descripcion" name="descripcion" 
-                          rows="5" required minlength="250" maxlength="2000"></textarea>
-                <div class="invalid-feedback"></div>
-            </div>
-        </div>
+    <!-- Título -->
+    <div class="form-group mb-4">
+        <label for="titulo" class="form-label d-flex justify-content-between align-items-center">
+            <span>Título del Anuncio *</span>
+        </label>
+        <input type="text" 
+               class="form-control" 
+               id="titulo" 
+               name="titulo" 
+               required 
+               minlength="40" 
+               maxlength="70"
+               placeholder="Escribe un título descriptivo">
+        <div class="invalid-feedback">El título debe tener entre 40 y 70 caracteres</div>
+        <div class="form-text text-success text-end" id="tituloContador">0/70 caracteres (mínimo 40)</div>
+    </div>
+
+    <!-- Descripción -->
+    <div class="form-group mb-3">
+        <label for="descripcion" class="form-label d-flex justify-content-between align-items-center">
+            <span>Descripción *</span>
+        </label>
+        <textarea class="form-control" 
+                  id="descripcion" 
+                  name="descripcion" 
+                  rows="5" 
+                  required 
+                  minlength="250" 
+                  maxlength="1000"
+                  placeholder="Describe detalladamente tu servicio..."></textarea>
+        <div class="invalid-feedback">La descripción debe tener entre 250 y 1000 caracteres</div>
+        <div class="form-text text-success text-end" id="descripcionContador">0/1000 caracteres (mínimo 250)</div>
+    </div>
+
+    <!-- Indicador de campos requeridos -->
+    <div class="mt-3">
+        <small class="text-muted">* Campos obligatorios</small>
+    </div>
+</div>
+
 
         <!-- Box 3: Subida de Imágenes -->
         <div class="box mb-4 p-4 border rounded shadow-sm">
@@ -476,10 +535,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </div>
 
-            <div class="form-group mb-3">
-                <label for="correo" class="form-label">Correo Electrónico</label>
-                <input type="email" class="form-control" id="correo" name="correo" required>
-                <div class="invalid-feedback"></div>
+            <div class="form-group mt-3">
+                <label for="correo">Correo Electrónico</label>
+                <input type="email" 
+                       name="correo" 
+                       id="correo" 
+                       class="form-control bg-light" 
+                       value="<?= htmlspecialchars($emailUsuario); ?>" 
+                       readonly 
+                       required>
             </div>
         </div>
 
@@ -525,37 +589,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    function filtrarComunas() {
-        const ciudadId = document.getElementById('ciudad_id').value;
-        const comunaSelect = document.getElementById('comuna_id');
+function filtrarComunas() {
+    const ciudadId = document.getElementById('ciudad_id').value;
+    const comunaSelect = document.getElementById('comuna_id');
+    
+    // Deshabilitar el select de comuna mientras carga
+    comunaSelect.disabled = true;
+    
+    // Mostrar estado de carga
+    comunaSelect.innerHTML = '<option value="" disabled selected>Cargando comunas...</option>';
 
-        showLoading();
-        comunaSelect.innerHTML = '<option value="" disabled selected>Cargando comunas...</option>';
-
-        fetch(`publicar.php?ciudad_id=${ciudadId}`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Error en la red');
-                }
-                return response.json();
-            })
-            .then(data => {
-                comunaSelect.innerHTML = '<option value="" disabled selected>Selecciona una comuna</option>';
-                data.forEach(comuna => {
-                    const option = document.createElement('option');
-                    option.value = comuna.id;
-                    option.textContent = comuna.nombre;
-                    comunaSelect.appendChild(option);
-                });
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error al cargar las comunas. Por favor, intente nuevamente.');
-            })
-            .finally(() => {
-                hideLoading();
+    fetch(`publicar.php?ciudad_id=${ciudadId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error en la red');
+            }
+            return response.json();
+        })
+        .then(comunas => {
+            // Limpiar y agregar nueva opción por defecto
+            comunaSelect.innerHTML = '<option value="" disabled selected>Selecciona una comuna</option>';
+            
+            // Agregar las comunas ordenadas alfabéticamente
+            comunas.sort((a, b) => a.nombre.localeCompare(b.nombre))
+                  .forEach(comuna => {
+                const option = document.createElement('option');
+                option.value = comuna.id;
+                option.textContent = comuna.nombre;
+                comunaSelect.appendChild(option);
             });
-    }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            comunaSelect.innerHTML = '<option value="" disabled selected>Error al cargar comunas</option>';
+        })
+        .finally(() => {
+            // Reactivar el select de comuna
+            comunaSelect.disabled = false;
+        });
+}
+
+// Validación de selects
+document.querySelectorAll('select').forEach(select => {
+    select.addEventListener('change', function() {
+        if (this.value) {
+            this.classList.add('is-valid');
+            this.classList.remove('is-invalid');
+        } else {
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        }
+    });
+});
 
     function validateFileSize(file) {
         if (file.size > MAX_FILE_SIZE) {
@@ -739,6 +824,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             telefonoInput.setCustomValidity('Por favor, ingresa un número de teléfono chileno válido.');
         }
     });
+    
+// Función para actualizar contadores
+function actualizarContador(elemento, minimo, maximo) {
+    const contador = document.getElementById(`${elemento.id}Contador`);
+    const caracteresActuales = elemento.value.length;
+    
+    contador.textContent = `${caracteresActuales}/${maximo} caracteres (mínimo ${minimo})`;
+    contador.classList.add('text-success'); // Siempre verde
+    
+    // Validación del campo
+    if (caracteresActuales === 0) {
+        elemento.classList.remove('is-valid', 'is-invalid');
+    } else if (caracteresActuales >= minimo && caracteresActuales <= maximo) {
+        elemento.classList.add('is-valid');
+        elemento.classList.remove('is-invalid');
+    } else {
+        elemento.classList.add('is-invalid');
+        elemento.classList.remove('is-valid');
+    }
+}
+
+// Validación de edad
+document.getElementById('edad').addEventListener('input', function() {
+    const edad = parseInt(this.value);
+    const esValido = !isNaN(edad) && edad >= 18 && edad <= 99;
+    
+    this.classList.toggle('is-valid', esValido);
+    this.classList.toggle('is-invalid', !esValido);
+});
+
+// Contador para título
+document.getElementById('titulo').addEventListener('input', function() {
+    actualizarContador(this, 40, 200);
+});
+
+// Contador para descripción
+document.getElementById('descripcion').addEventListener('input', function() {
+    actualizarContador(this, 250, 2000);
+});
+
+// Inicializar contadores si hay valores pre-existentes
+window.addEventListener('load', function() {
+    const titulo = document.getElementById('titulo');
+    const descripcion = document.getElementById('descripcion');
+    
+    if (titulo.value) actualizarContador(titulo, 40, 200);
+    if (descripcion.value) actualizarContador(descripcion, 250, 2000);
+});
+</script>
+    
 </script>
 </body>
 </html>
