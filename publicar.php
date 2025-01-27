@@ -170,33 +170,81 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Publicar Anuncio</title>
     
 <style>
-    .image-upload-container {
-        border: 2px dashed #ccc;
-        border-radius: 10px;
+    /* Estilos generales */
+    .container {
+        max-width: 1200px;
         padding: 20px;
+    }
+
+    /* Boxes con mejor diseño */
+    .box {
+        background-color: #ffffff;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        padding: 25px;
+        margin-bottom: 25px;
+    }
+
+    .box:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        transform: translateY(-2px);
+    }
+
+    /* Títulos de secciones */
+    .box h4 {
+        color: #2c3e50;
+        border-bottom: 2px solid #e9ecef;
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+        font-weight: 600;
+    }
+
+    /* Mejoras en el contenedor de subida de imágenes */
+    .image-upload-container {
+        border: 2px dashed #007bff;
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 30px;
         text-align: center;
         cursor: pointer;
         margin-bottom: 20px;
+        transition: all 0.3s ease;
+    }
+
+    .image-upload-container:hover {
+        border-color: #0056b3;
+        background-color: #e9ecef;
     }
 
     .image-upload-container.dragover {
-        border-color: #007bff;
+        border-color: #28a745;
+        background-color: rgba(40, 167, 69, 0.1);
     }
 
+    /* Grid de imágenes */
     .image-grid {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 15px;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 20px;
+        padding: 10px;
     }
 
+    /* Items de imagen */
     .image-item {
         position: relative;
         width: 100%;
         padding-top: 100%;
-        background-color: #f5f5f5;
-        border: 1px solid #ddd;
-        border-radius: 5px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
         overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+
+    .image-item:hover {
+        transform: scale(1.02);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
 
     .image-item img {
@@ -208,156 +256,248 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         object-fit: cover;
     }
 
+    /* Botones de imagen */
     .image-item .mark-main,
     .image-item .remove-image {
         position: absolute;
-        bottom: 5px;
-        background: rgba(0, 0, 0, 0.6);
-        color: #fff;
+        padding: 8px 12px;
         border: none;
-        border-radius: 3px;
-        padding: 5px 10px;
+        border-radius: 4px;
         font-size: 12px;
+        font-weight: 500;
         cursor: pointer;
+        transition: all 0.3s ease;
+        opacity: 1;
     }
 
     .image-item .mark-main {
-        left: 5px;
+        left: 8px;
+        bottom: 8px;
+        background-color: rgba(0, 123, 255, 0.9);
+        color: white;
     }
 
     .image-item .remove-image {
-        right: 5px;
+        right: 8px;
+        bottom: 8px;
+        background-color: rgba(220, 53, 69, 0.9);
+        color: white;
+    }
+
+    .image-item .mark-main:hover {
+        background-color: #0056b3;
+        transform: scale(1.05);
+    }
+
+    .image-item .remove-image:hover {
+        background-color: #c82333;
+        transform: scale(1.05);
     }
 
     .image-item .mark-main.active {
-        background: #007bff;
+        background-color: #28a745;
     }
+
+    /* Inputs y selects */
+    .form-control {
+        border-radius: 6px;
+        border: 1px solid #ced4da;
+        padding: 10px 15px;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    /* Loading spinner */
     #loading {
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(255, 255, 255, 0.8);
+        background: rgba(255, 255, 255, 0.9);
         display: flex;
         justify-content: center;
         align-items: center;
-        z-index: 1000;
+        z-index: 9999;
     }
 
-    .error-message {
-        color: #dc3545;
-        font-size: 0.875rem;
-        margin-top: 0.25rem;
+    /* Estilos responsivos */
+    @media (max-width: 768px) {
+        .image-grid {
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .box {
+            padding: 15px;
+        }
+
+        .form-control {
+            font-size: 16px;
+        }
+
+        .image-item .mark-main,
+        .image-item .remove-image {
+            padding: 6px 10px;
+            font-size: 11px;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .container {
+            padding: 10px;
+        }
+
+        .box {
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .image-grid {
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+        }
     }
 </style>
 </head>
 <body>
     <?php include '../includes/header.php'; ?>
 
-<div class="container my-5">
-    <h1 class="text-center mb-4">Publicar Anuncio</h1>
+<div class="container mt-4">
+    <h2 class="text-center mb-4">Publicar Anuncio</h2>
     <form action="" method="POST" enctype="multipart/form-data" id="publicarForm">
         <!-- Box 1: Categoría, Ciudad y Comuna -->
-        <div class="box mb-4 p-3 border rounded">
-            <h4 class="mb-3">Anuncio</h4>
-            <div class="form-group">
-                <label for="categoria_id">Categoría</label>
+        <div class="box mb-4 p-4 border rounded shadow-sm">
+            <h4 class="mb-3">Ubicación del Anuncio</h4>
+            <div class="mb-3">
+                <label for="categoria_id" class="form-label">Categoría</label>
                 <select name="categoria_id" id="categoria_id" class="form-control" required>
                     <option value="" disabled selected>Selecciona una categoría</option>
                     <?php while ($categoria = $resultCategorias->fetch_assoc()): ?>
-                        <option value="<?= $categoria['id']; ?>"><?= htmlspecialchars($categoria['nombre']); ?></option>
+                        <option value="<?= $categoria['id'] ?>"><?= htmlspecialchars($categoria['nombre']) ?></option>
                     <?php endwhile; ?>
                 </select>
             </div>
-            <div class="form-group">
-                <label for="ciudad_id">Ciudad</label>
-                <select name="ciudad_id" id="ciudad_id" class="form-control" onchange="filtrarComunas()" required>
-                    <option value="" disabled selected>Selecciona una ciudad</option>
-                    <?php while ($ciudad = $resultCiudades->fetch_assoc()): ?>
-                        <option value="<?= $ciudad['id']; ?>"><?= htmlspecialchars($ciudad['nombre']); ?></option>
-                    <?php endwhile; ?>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="comuna_id">Comuna</label>
-                <select name="comuna_id" id="comuna_id" class="form-control" required>
-                    <option value="" disabled selected>Selecciona una comuna</option>
-                </select>
+        
+            <div class="row"> <!-- Agregamos un row para el grid -->
+                <div class="col-md-6"> <!-- Primera columna (6/12) -->
+                    <div class="mb-3">
+                        <label for="ciudad_id" class="form-label">Ciudad</label>
+                        <select name="ciudad_id" id="ciudad_id" class="form-control" onchange="filtrarComunas()" required>
+                            <option value="" disabled selected>Selecciona una ciudad</option>
+                            <?php while ($ciudad = $resultCiudades->fetch_assoc()): ?>
+                                <option value="<?= $ciudad['id'] ?>"><?= htmlspecialchars($ciudad['nombre']) ?></option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6"> <!-- Segunda columna (6/12) -->
+                    <div class="mb-3">
+                        <label for="comuna_id" class="form-label">Comuna</label>
+                        <select name="comuna_id" id="comuna_id" class="form-control" required>
+                            <option value="" disabled selected>Primero selecciona una ciudad</option>
+                        </select>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- Box 2: Edad, Título y Descripción -->
-        <div class="box mb-4 p-3 border rounded"> 
-            <h4 class="mb-3">Datos</h4>
-            <div class="form-row d-flex">
-                <div class="col-md-2 col-xs-12 form-group">
-                    <label>Edad</label>
-                    <input name="edad" type="number" id="edad" class="form-control" 
-                           placeholder="Ingresa tu edad" required min="18" max="99">
-                </div>
+        <div class="box mb-4 p-4 border rounded shadow-sm">
+            <h4 class="mb-3">Detalles del Anuncio</h4>
+            <div class="form-group mb-3">
+                <label for="edad" class="form-label">Edad</label>
+                <input type="number" class="form-control" id="edad" name="edad" 
+                       required min="18" max="99" style="max-width: 100px;">
+                <div class="invalid-feedback"></div>
             </div>
 
-            <div class="form-group mt-3">
-                <label for="titulo" class="d-flex justify-content-between">
-                    <span>* Título</span>
-                    <small class="text-muted">Se necesitan 40 caracteres</small>
+            <div class="form-group mb-3">
+                <label for="titulo" class="form-label d-flex justify-content-between">
+                    <span>Título del Anuncio</span>
+                    <small class="text-muted">Mínimo 40 caracteres</small>
                 </label>
-                <input type="text" name="titulo" id="titulo" class="form-control" 
-                       placeholder="Ponle un buen título a tu anuncio" minlength="40" required>
+                <input type="text" class="form-control" id="titulo" name="titulo" 
+                       required minlength="40" maxlength="200">
+                <div class="invalid-feedback"></div>
             </div>
 
-            <div class="form-group mt-3">
-                <label for="descripcion" class="d-flex justify-content-between">
-                    <span>* Texto</span>
-                    <small class="text-muted">Se necesitan 250 caracteres</small>
+            <div class="form-group mb-3">
+                <label for="descripcion" class="form-label d-flex justify-content-between">
+                    <span>Descripción</span>
+                    <small class="text-muted">Mínimo 250 caracteres</small>
                 </label>
-                <textarea name="descripcion" id="descripcion" class="form-control" rows="5" 
-                          placeholder="Utiliza este espacio para decir cómo eres, describir tu cuerpo, comentar tus habilidades, indicar lo que te gusta..." 
-                          minlength="250" required></textarea>
+                <textarea class="form-control" id="descripcion" name="descripcion" 
+                          rows="5" required minlength="250" maxlength="2000"></textarea>
+                <div class="invalid-feedback"></div>
             </div>
         </div>
 
-        <!-- Box 3: Teléfono, WhatsApp y Correo -->
-        <div class="box mb-4 p-3 border rounded">
-            <h4 class="mb-3">Contacto</h4>
-            <div class="form-group">
-                <label for="telefono">Teléfono</label>
-                <input type="text" name="telefono" id="telefono" class="form-control" 
-                       placeholder="+56 2 21234567" required 
-                       title="El número debe estar en el formato: +56 2 21234567">
-            </div>
-
-            <div class="form-group mt-3">
-                <label for="whatsapp">WhatsApp</label>
-                <div class="custom-control custom-switch">
-                    <input type="checkbox" class="custom-control-input" id="whatsapp_switch" 
-                           name="whatsapp" value="1">
-                    <label class="custom-control-label" for="whatsapp_switch">Activar WhatsApp</label>
-                </div>
-            </div>
-
-            <div class="form-group mt-3">
-                <label for="correo">Correo Electrónico</label>
-                <input type="email" name="correo" id="correo" class="form-control" 
-                       placeholder="Ingresa tu correo electrónico" required>
-            </div>
-        </div>
-
-        <!-- Box 4: Subida de Imágenes -->
-        <div class="box mb-4 p-3 border rounded">
+        <!-- Box 3: Subida de Imágenes -->
+        <div class="box mb-4 p-4 border rounded shadow-sm">
             <h4 class="mb-3">Imágenes del Anuncio</h4>
             <div class="image-upload-container" id="drop-area">
-                <p>Arrastra y suelta imágenes aquí o haz clic para seleccionar</p>
+                <p class="mb-0">
+                    <i class="fas fa-cloud-upload-alt fa-2x mb-2"></i><br>
+                    Arrastra y suelta imágenes aquí o haz clic para seleccionar
+                </p>
                 <input type="file" name="imagenes[]" id="imagenes" class="d-none" 
                        multiple accept=".jpg,.jpeg,.png,.gif">
             </div>
             <div class="image-grid" id="image-preview"></div>
+            <div class="mt-2 small text-muted">
+                <ul class="mb-0">
+                    <li>Máximo 8 imágenes</li>
+                </ul>
+            </div>
         </div>
 
-        <button type="submit" class="btn btn-primary btn-block mt-4">Publicar</button>
+        <!-- Box 4: Teléfono, WhatsApp y Email -->
+        <div class="box mb-4 p-4 border rounded shadow-sm">
+            <h4 class="mb-3">Información de Contacto</h4>
+            <div class="form-group mb-3">
+                <label for="telefono" class="form-label">Teléfono</label>
+                <input type="text" class="form-control" id="telefono" name="telefono" 
+                       required placeholder="+56 9 XXXX XXXX">
+                <div class="invalid-feedback"></div>
+            </div>
+
+            <div class="form-group mb-3">
+                <div class="custom-control custom-switch">
+                    <input type="checkbox" class="custom-control-input" id="whatsapp" 
+                           name="whatsapp" value="1">
+                    <label class="custom-control-label" for="whatsapp">
+                        Activar WhatsApp
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group mb-3">
+                <label for="correo" class="form-label">Correo Electrónico</label>
+                <input type="email" class="form-control" id="correo" name="correo" required>
+                <div class="invalid-feedback"></div>
+            </div>
+        </div>
+
+        <!-- Botones de acción -->
+        <div class="d-flex gap-2 mt-4 justify-content-center" style="max-width: 600px; margin: 0 auto;">
+            <button type="submit" class="btn btn-primary" style="width: 200px;">
+                <i class="fas fa-save me-2"></i>
+                Publicar
+            </button>
+            <a href="index.php" class="btn btn-secondary" style="width: 200px;">
+                <i class="fas fa-arrow-left me-2"></i>
+                Volver
+            </a>
+        </div>
     </form>
 </div>
+
+
 
 <?php include '../includes/footer.php'; ?>
 
