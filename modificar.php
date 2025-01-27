@@ -31,6 +31,15 @@ if ($resultAnuncio->num_rows === 0) {
 
 $anuncio = $resultAnuncio->fetch_assoc();
 
+// consulta para obtener el email del usuario
+$queryUsuario = "SELECT email FROM usuarios WHERE id = ?";
+$stmtUsuario = $conn->prepare($queryUsuario);
+$stmtUsuario->bind_param('i', $usuario_id);
+$stmtUsuario->execute();
+$resultUsuario = $stmtUsuario->get_result();
+$usuario = $resultUsuario->fetch_assoc();
+$emailUsuario = $usuario['email'];
+
 // Obtener imágenes del anuncio
 $queryImagenes = "SELECT * FROM imagenes_anuncios WHERE anuncio_id = ?";
 $stmtImagenes = $conn->prepare($queryImagenes);
@@ -88,17 +97,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Actualizar datos del anuncio
-        $query = "UPDATE anuncios SET 
-                  categoria_id = ?, comuna_id = ?, ciudad_id = ?, edad = ?, 
-                  titulo = ?, descripcion = ?, telefono = ?, whatsapp = ?, 
-                  correo_electronico = ? 
-                  WHERE id = ? AND usuario_id = ?";
-        $stmt = $conn->prepare($query);
-        $stmt->bind_param('iiiissssiii', 
-            $categoria_id, $comuna_id, $ciudad_id, $edad, 
-            $titulo, $descripcion, $telefono, $whatsapp, 
-            $correo, $anuncio_id, $usuario_id
-        );
+// Dentro del bloque try del procesamiento POST
+$query = "UPDATE anuncios SET 
+          categoria_id = ?, comuna_id = ?, ciudad_id = ?, edad = ?, 
+          titulo = ?, descripcion = ?, telefono = ?, whatsapp = ?, 
+          correo_electronico = ? 
+          WHERE id = ? AND usuario_id = ?";
+
+$stmt = $conn->prepare($query);
+$whatsapp = isset($_POST['whatsapp']) ? 1 : 0;
+
+// Usar $emailUsuario en lugar de $_POST['correo']
+$stmt->bind_param('iiiisssisii', 
+    $_POST['categoria_id'],
+    $_POST['comuna_id'],
+    $_POST['ciudad_id'],
+    $_POST['edad'],
+    $_POST['titulo'],
+    $_POST['descripcion'],
+    $_POST['telefono'],
+    $whatsapp,
+    $emailUsuario,  // Aquí usamos el email del usuario en lugar de $_POST['correo']
+    $anuncio_id,
+    $usuario_id
+);
         $stmt->execute();
 
         // Procesar imágenes eliminadas
@@ -530,6 +552,132 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             gap: 10px;
         }
     }
+/* Estilos para los botones con iconos */
+
+.image-item .mark-main {
+    left: 10px;
+    color: #6c757d;
+}
+
+.image-item .mark-main:hover {
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.image-item .mark-main.active {
+    color: #ffffff;
+}
+
+.image-item .remove-image {
+    right: 10px;
+    color: #ffffff;
+    background-color: rgba(220, 53, 69, 0.8);
+}
+
+.image-item .remove-image:hover {
+    background-color: rgba(220, 53, 69, 1);
+}
+
+/* Efecto hover para mostrar los botones */
+.image-item button {
+    opacity: 0;
+    transform: scale(0.8);
+}
+
+.image-item:hover button {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Mantener visible el botón de principal si está activo */
+.image-item .mark-main.active {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Asegurar que los iconos tengan el tamaño correcto */
+.image-item button i {
+    font-size: 16px;
+}
+
+
+
+
+.image-item {
+    position: relative;
+    width: 100%;
+    padding-top: 100%;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 15px;
+    transition: all 0.3s ease;
+}
+
+.image-item img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.image-item button {
+    position: absolute;
+    bottom: 10px;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    transform: scale(0.8);
+}
+
+.image-item:hover button {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.image-item .mark-main {
+    left: 10px;
+    color: #6c757d;
+}
+
+.image-item .mark-main:hover {
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.image-item .mark-main.active {
+    color: #ffffff;
+    opacity: 1;
+    transform: scale(1);
+}
+
+.image-item .remove-image {
+    right: 10px;
+    color: #ffffff;
+    background-color: rgba(220, 53, 69, 0.8);
+}
+
+.image-item .remove-image:hover {
+    background-color: rgba(220, 53, 69, 1);
+}
+
+.image-item button i {
+    font-size: 16px;
+}
+
+.image-item[data-main="true"] {
+    border: 4px solid #28a745; /* Borde verde */
+    box-shadow: 0 0 10px rgba(40, 167, 69, 0.5); /* Brillo verde */
+}
+
 </style>
 </head>
 <body>
@@ -636,11 +784,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                id="titulo" 
                class="form-control"
                minlength="40"
-               maxlength="200"
+               maxlength="70"
                required
                placeholder="Escribe un título atractivo para tu anuncio"
                value="<?= isset($anuncio['titulo']) ? htmlspecialchars($anuncio['titulo']) : ''; ?>">
-        <div class="invalid-feedback">El título debe tener entre 40 y 200 caracteres</div>
+        <div class="invalid-feedback">El título debe tener entre 40 y 70 caracteres</div>
         <div class="form-text text-end" id="tituloCaracteres">0 caracteres (mínimo 40)</div>
     </div>
 
@@ -654,11 +802,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   class="form-control"
                   rows="5" 
                   minlength="250"
-                  maxlength="2000"
+                  maxlength="1000"
                   required
                   placeholder="Describe detalladamente tu servicio..."
         ><?= isset($anuncio['descripcion']) ? htmlspecialchars($anuncio['descripcion']) : ''; ?></textarea>
-        <div class="invalid-feedback">La descripción debe tener entre 250 y 2000 caracteres</div>
+        <div class="invalid-feedback">La descripción debe tener entre 250 y 1000 caracteres</div>
         <div class="form-text text-end" id="descripcionCaracteres">0 caracteres (mínimo 250)</div>
     </div>
 </div>
@@ -677,19 +825,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 <div class="image-grid" id="image-preview">
                     <?php foreach ($imagenesAnuncio as $index => $imagen): ?>
-                        <div class="image-item" data-id="<?= $imagen['id']; ?>">
-                            <img src="<?= htmlspecialchars($imagen['url_imagen']); ?>" 
-                                 alt="Imagen del anuncio">
-                            <button type="button" 
-                                    class="mark-main <?= $imagen['principal'] ? 'active' : ''; ?>"
-                                    onclick="setMainImage(<?= $index; ?>)">
-                                <?= $imagen['principal'] ? 'Principal' : 'Marcar como Principal'; ?>
-                            </button>
-                            <button type="button" class="remove-image"
-                                    onclick="removeImage(<?= $index; ?>)">
-                                Eliminar
-                            </button>
-                        </div>
+<div class="image-item" data-id="<?= $imagen['id']; ?>">
+    <img src="<?= htmlspecialchars($imagen['url_imagen']); ?>" 
+         alt="Imagen del anuncio">
+    <button type="button" 
+            class="mark-main <?= $imagen['principal'] ? 'active' : ''; ?>"
+            onclick="setMainImage(<?= $index; ?>)">
+        <i class="<?= $imagen['principal'] ? 'fas' : 'far' ?> fa-star"></i>
+    </button>
+    <button type="button" 
+            class="remove-image"
+            onclick="removeImage(<?= $index; ?>)">
+        <i class="fas fa-trash-alt"></i>
+    </button>
+</div>
+
                     <?php endforeach; ?>
                 </div>
             </div>
@@ -737,8 +887,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                class="form-control bg-light" 
                required 
                readonly
-               value="<?= htmlspecialchars($anuncio['correo_electronico']); ?>">
+               value="<?= htmlspecialchars($emailUsuario); ?>">
     </div>
+
 </div>
 
             <div class="d-flex gap-2 mt-4 justify-content-center container-sm">
@@ -885,11 +1036,33 @@ async function handleFiles(files) {
 }
 
 function setMainImage(index) {
-    images.forEach((img, i) => {
-        img.isMain = (i === index);
+    const buttons = document.querySelectorAll('.mark-main');
+    const imageItems = document.querySelectorAll('.image-item');
+    
+    buttons.forEach((button, i) => {
+        const icon = button.querySelector('i');
+        const imageItem = imageItems[i];
+        
+        if (i === index) {
+            button.classList.add('active');
+            icon.classList.remove('far');
+            icon.classList.add('fas');
+            imageItem.setAttribute('data-main', 'true');
+            images[i].isMain = true;
+        } else {
+            button.classList.remove('active');
+            icon.classList.remove('fas');
+            icon.classList.add('far');
+            imageItem.removeAttribute('data-main');
+            images[i].isMain = false;
+        }
     });
+}
+
+// Función auxiliar para eliminar imagen
+function removeImage(index) {
+    images.splice(index, 1);
     renderImages();
-    updateMainImageInput();
 }
 
 function removeImage(index) {
@@ -927,34 +1100,54 @@ function renderImages() {
     previewContainer.innerHTML = '';
     
     images.forEach((image, index) => {
+        // Crear contenedor de imagen
         const imageItem = document.createElement('div');
         imageItem.classList.add('image-item');
+        
+        // Agregar ID si existe
         if (image.id) {
             imageItem.dataset.id = image.id;
         }
+        
+        // Marcar como principal si corresponde
+        if (image.isMain) {
+            imageItem.setAttribute('data-main', 'true');
+        }
 
+        // Crear y configurar la imagen
         const img = document.createElement('img');
         img.src = image.src;
         img.alt = 'Imagen del anuncio';
         imageItem.appendChild(img);
 
+        // Crear botón de marcar como principal
         const markMainButton = document.createElement('button');
         markMainButton.type = 'button';
-        markMainButton.textContent = image.isMain ? 'Principal' : 'Marcar como Principal';
         markMainButton.classList.add('mark-main');
         if (image.isMain) {
             markMainButton.classList.add('active');
         }
+        
+        // Crear icono de estrella
+        const starIcon = document.createElement('i');
+        starIcon.classList.add(image.isMain ? 'fas' : 'far', 'fa-star');
+        markMainButton.appendChild(starIcon);
         markMainButton.addEventListener('click', () => setMainImage(index));
         imageItem.appendChild(markMainButton);
 
+        // Crear botón de eliminar
         const removeButton = document.createElement('button');
         removeButton.type = 'button';
-        removeButton.textContent = 'Eliminar';
         removeButton.classList.add('remove-image');
+        
+        // Crear icono de papelera
+        const trashIcon = document.createElement('i');
+        trashIcon.classList.add('fas', 'fa-trash-alt');
+        removeButton.appendChild(trashIcon);
         removeButton.addEventListener('click', () => removeImage(index));
         imageItem.appendChild(removeButton);
 
+        // Agregar el elemento completo al contenedor
         previewContainer.appendChild(imageItem);
     });
 }
