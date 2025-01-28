@@ -788,7 +788,7 @@ $stmt->bind_param('iiiisssisii',
                placeholder="Escribe un título atractivo para tu anuncio"
                value="<?= isset($anuncio['titulo']) ? htmlspecialchars($anuncio['titulo']) : ''; ?>">
         <div class="invalid-feedback">El título debe tener entre 40 y 70 caracteres</div>
-        <div class="form-text text-end" id="tituloCaracteres">0 caracteres (mínimo 40)</div>
+        <div class="form-text text-end" id="tituloCaracteres">0 caracteres (mínimo 40 - maximo 70)</div>
     </div>
 
     <!-- Descripción -->
@@ -800,13 +800,13 @@ $stmt->bind_param('iiiisssisii',
                   id="descripcion" 
                   class="form-control"
                   rows="5" 
-                  minlength="250"
+                  minlength="150"
                   maxlength="1000"
                   required
                   placeholder="Describe detalladamente tu servicio..."
         ><?= isset($anuncio['descripcion']) ? htmlspecialchars($anuncio['descripcion']) : ''; ?></textarea>
-        <div class="invalid-feedback">La descripción debe tener entre 250 y 1000 caracteres</div>
-        <div class="form-text text-end" id="descripcionCaracteres">0 caracteres (mínimo 250)</div>
+        <div class="invalid-feedback">La descripción debe tener entre 150 y 1000 caracteres</div>
+        <div class="form-text text-end" id="descripcionCaracteres">0 caracteres (mínimo 150 -maximo 1000)</div>
     </div>
 </div>
 
@@ -824,20 +824,20 @@ $stmt->bind_param('iiiisssisii',
                 </div>
                 <div class="image-grid" id="image-preview">
                     <?php foreach ($imagenesAnuncio as $index => $imagen): ?>
-<div class="image-item" data-id="<?= $imagen['id']; ?>">
-    <img src="<?= htmlspecialchars($imagen['url_imagen']); ?>" 
-         alt="Imagen del anuncio">
-    <button type="button" 
-            class="mark-main <?= $imagen['principal'] ? 'active' : ''; ?>"
-            onclick="setMainImage(<?= $index; ?>)">
-        <i class="<?= $imagen['principal'] ? 'fas' : 'far' ?> fa-star"></i>
-    </button>
-    <button type="button" 
-            class="remove-image"
-            onclick="removeImage(<?= $index; ?>)">
-        <i class="fas fa-trash-alt"></i>
-    </button>
-</div>
+                <div class="image-item" data-id="<?= $imagen['id']; ?>">
+                    <img src="<?= htmlspecialchars($imagen['url_imagen']); ?>" 
+                         alt="Imagen del anuncio">
+                    <button type="button" 
+                            class="mark-main <?= $imagen['principal'] ? 'active' : ''; ?>"
+                            onclick="setMainImage(<?= $index; ?>)">
+                        <i class="<?= $imagen['principal'] ? 'fas' : 'far' ?> fa-star"></i>
+                    </button>
+                    <button type="button" 
+                            class="remove-image"
+                            onclick="removeImage(<?= $index; ?>)">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
 
                     <?php endforeach; ?>
                 </div>
@@ -1304,7 +1304,7 @@ document.getElementById('telefono').addEventListener('input', function() {
 document.getElementById('titulo').addEventListener('input', function() {
     const caracteresActuales = this.value.length;
     const contador = document.getElementById('tituloCaracteres');
-    contador.textContent = `${caracteresActuales} caracteres (mínimo 40)`;
+    contador.textContent = `${caracteresActuales} caracteres (mínimo 40 - maximo 70)`;
     
     if (caracteresActuales < 40) {
         contador.classList.add('text-danger');
@@ -1319,9 +1319,9 @@ document.getElementById('titulo').addEventListener('input', function() {
 document.getElementById('descripcion').addEventListener('input', function() {
     const caracteresActuales = this.value.length;
     const contador = document.getElementById('descripcionCaracteres');
-    contador.textContent = `${caracteresActuales} caracteres (mínimo 250)`;
+    contador.textContent = `${caracteresActuales} caracteres (mínimo 150 - maximo 1000)`;
     
-    if (caracteresActuales < 250) {
+    if (caracteresActuales < 150) {
         contador.classList.add('text-danger');
         contador.classList.remove('text-success');
     } else {
