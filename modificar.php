@@ -82,6 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ciudad_id = intval($_POST['ciudad_id']);
         $edad = intval($_POST['edad']);
         $titulo = htmlspecialchars(trim($_POST['titulo']));
+        $nombre = trim($_POST['nombre']);
         $descripcion = htmlspecialchars(trim($_POST['descripcion']));
         $telefono = htmlspecialchars(trim($_POST['telefono']));
         $whatsapp = isset($_POST['whatsapp']) ? 1 : 0;
@@ -100,24 +101,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Dentro del bloque try del procesamiento POST
 $query = "UPDATE anuncios SET 
           categoria_id = ?, comuna_id = ?, ciudad_id = ?, edad = ?, 
-          titulo = ?, descripcion = ?, telefono = ?, whatsapp = ?, 
+          titulo = ?, nombre = ?, descripcion = ?, telefono = ?, whatsapp = ?, 
           correo_electronico = ? 
           WHERE id = ? AND usuario_id = ?";
 
 $stmt = $conn->prepare($query);
 $whatsapp = isset($_POST['whatsapp']) ? 1 : 0;
 
-// Usar $emailUsuario en lugar de $_POST['correo']
-$stmt->bind_param('iiiisssisii', 
+// Corrección en el bind_param:
+// 1. Agregamos un tipo 's' para el campo nombre
+// 2. Aseguramos que el orden coincida con la consulta SQL
+// 3. Incluimos $_POST['nombre'] en los parámetros
+$stmt->bind_param('iiiissssisii', 
     $_POST['categoria_id'],
     $_POST['comuna_id'],
     $_POST['ciudad_id'],
     $_POST['edad'],
     $_POST['titulo'],
+    $_POST['nombre'],     // Agregamos el campo nombre
     $_POST['descripcion'],
     $_POST['telefono'],
     $whatsapp,
-    $emailUsuario,  // Aquí usamos el email del usuario en lugar de $_POST['correo']
+    $emailUsuario,
     $anuncio_id,
     $usuario_id
 );
@@ -755,7 +760,23 @@ $stmt->bind_param('iiiisssisii',
 <!-- Box 2: Edad, Título y Descripción -->
 <div class="box mb-4 p-4 border rounded shadow-sm">
     <h4 class="mb-3">Detalles del Anuncio</h4>
-    
+                <!-- Campo Nombre -->
+                <div class="mb-3 col-md-4">
+                    <label for="nombre" class="form-label">Nombre</label>
+                    <input type="text" 
+                           class="form-control" 
+                           id="nombre" 
+                           name="nombre" 
+                           required 
+                           maxlength="20"
+                           minlength="2"
+                           style="max-width: 200px;"
+                           value="<?= htmlspecialchars($anuncio['nombre'] ?? ''); ?>"
+                           placeholder="Ingresa tu nombre">
+                    <div class="form-text">
+                        <span id="nombreCaracteres" style="font-size: 0.8rem;">0/20 caracteres</span>
+                    </div>
+                </div>    
     <!-- Edad -->
     <div class="mb-4">
         <div class="col-md-2 px-0">
@@ -1329,6 +1350,27 @@ document.getElementById('descripcion').addEventListener('input', function() {
         contador.classList.remove('text-danger');
     }
 });
+
+       // Contador de caracteres para el campo nombre
+        document.getElementById('nombre').addEventListener('input', function() {
+            const maxCaracteres = 20;
+            const caracteresActuales = this.value.length;
+            const contador = document.getElementById('nombreCaracteres');
+            
+            contador.textContent = `${caracteresActuales}/${maxCaracteres} caracteres`;
+            
+            if (caracteresActuales > 0 && caracteresActuales <= maxCaracteres) {
+                this.classList.add('is-valid');
+                this.classList.remove('is-invalid');
+                contador.classList.add('text-success');
+                contador.classList.remove('text-danger');
+            } else {
+                this.classList.add('is-invalid');
+                this.classList.remove('is-valid');
+                contador.classList.add('text-danger');
+                contador.classList.remove('text-success');
+            }
+        });
 
 // Inicializar contadores si hay valores existentes
 window.addEventListener('load', function() {
