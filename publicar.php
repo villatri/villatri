@@ -55,6 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $categoria_id = intval($_POST['categoria_id']);
     $comuna_id = intval($_POST['comuna_id']);
     $ciudad_id = intval($_POST['ciudad_id']);
+    $nombre = trim($_POST['nombre']);
     $edad = intval($_POST['edad']);
     $titulo = htmlspecialchars(trim($_POST['titulo']));
     $descripcion = htmlspecialchars(trim($_POST['descripcion']));
@@ -118,20 +119,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         // Guardar datos en la base de datos
-        $query = "INSERT INTO anuncios (categoria_id, comuna_id, ciudad_id, edad, titulo, descripcion, 
+        $query = "INSERT INTO anuncios (categoria_id, comuna_id, ciudad_id, nombre, edad, titulo, descripcion, 
                   telefono, whatsapp, correo_electronico, usuario_id) 
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $conn->prepare($query);
-
+        
         if (!$stmt) {
             throw new Exception("Error en la preparación de la consulta: " . $conn->error);
         }
-
-        $stmt->bind_param('iiiisssssi', 
-            $categoria_id, $comuna_id, $ciudad_id, $edad, $titulo, 
+        
+        $stmt->bind_param('iiisisssssi', 
+            $categoria_id, $comuna_id, $ciudad_id, $nombre, $edad, $titulo, 
             $descripcion, $telefono, $whatsapp, $correo, $usuario_id
         );
-        
         $stmt->execute();
 
         if ($stmt->error) {
@@ -656,8 +656,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <!-- Box 2: Edad, Título y Descripción -->
             <div class="box mb-4 p-4 border rounded shadow-sm">
                 <h4>Detalles del Anuncio</h4>
-                <div class="form-row">
-                    <div class="mb-4">
+                <!-- Campo Nombre -->
+                <div class="mb-3">
+                    <label for="nombre" class="form-label">Nombre</label>
+                    <input type="text" 
+                           class="form-control" 
+                           id="nombre" 
+                           name="nombre" 
+                           required 
+                           maxlength="20"
+                           minlength="2"
+                           style="max-width: 200px;"
+                           value="<?= htmlspecialchars($anuncio['nombre'] ?? ''); ?>"
+                           placeholder="Ingresa tu nombre">
+                    <div class="form-text">
+                        <span id="nombreCaracteres">0/20 caracteres</span>
+                    </div>
+                </div>
+                <div class="mb-4">
+                     <div class="col-md-2 px-0">
                         <div class="form-group">
                             <label for="edad">Edad</label>
                             <input type="number" name="edad" id="edad" class="form-control"
@@ -1110,6 +1127,25 @@ window.addEventListener('load', function() {
     }
 });
 
+document.getElementById('nombre').addEventListener('input', function() {
+    const maxCaracteres = 20;
+    const caracteresActuales = this.value.length;
+    const contador = document.getElementById('nombreCaracteres');
+    
+    contador.textContent = `${caracteresActuales}/${maxCaracteres} caracteres`;
+    
+    if (caracteresActuales > 0 && caracteresActuales <= maxCaracteres) {
+        this.classList.add('is-valid');
+        this.classList.remove('is-invalid');
+        contador.classList.add('text-success');
+        contador.classList.remove('text-danger');
+    } else {
+        this.classList.add('is-invalid');
+        this.classList.remove('is-valid');
+        contador.classList.add('text-danger');
+        contador.classList.remove('text-success');
+    }
+});
     
 </script>
 </body>
