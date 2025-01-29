@@ -938,7 +938,7 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif'];
 // Variables globales
 let images = [];
 let processedFiles = new Set();
-let uploadedHashes = new Set(); // Nuevo: para controlar hashes de imágenes
+let uploadedHashes = new Set();
 
 // Inicializar imágenes existentes
 <?php foreach ($imagenesAnuncio as $imagen): ?>
@@ -1028,33 +1028,35 @@ async function handleFiles(files) {
     for (const file of Array.from(files)) {
         const fileId = `${file.name}-${file.size}-${file.lastModified}`;
         
-        // Verificar si el archivo ya ha sido procesado
         if (processedFiles.has(fileId)) {
-            console.log('Archivo ya procesado:', fileId);
             continue;
         }
 
-        if (await validateFile(file)) {
+        if (!validateFileSize(file) || !validateFileType(file)) {
+            continue;
+        }
+
+        try {
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onloadend = () => {
                 const imgObject = {
-                    src: e.target.result,
+                    src: reader.result,
                     file: file,
                     isMain: images.length === 0,
                     fileId: fileId,
-                    processed: false,
-                    hash: null // Se establecerá después
+                    processed: false
                 };
                 images.push(imgObject);
                 processedFiles.add(fileId);
-                console.log('Nueva imagen agregada:', imgObject);
                 renderImages();
             };
             reader.readAsDataURL(file);
+        } catch (error) {
+            console.error('Error procesando archivo:', error);
+            alert('Error al procesar la imagen. Por favor, intente nuevamente.');
         }
     }
 }
-
 function setMainImage(index) {
     const buttons = document.querySelectorAll('.mark-main');
     const imageItems = document.querySelectorAll('.image-item');
@@ -1124,26 +1126,27 @@ function removeImage(index) {
 
 function renderImages() {
     const previewContainer = document.getElementById('image-preview');
+    if (!previewContainer) return;
+    
     previewContainer.innerHTML = '';
     
     images.forEach((image, index) => {
         const imageItem = document.createElement('div');
         imageItem.classList.add('image-item');
+        
         if (image.id) {
             imageItem.dataset.id = image.id;
         }
         
-        // Agregar data-main si es la imagen principal
         if (image.isMain) {
             imageItem.setAttribute('data-main', 'true');
         }
 
         const img = document.createElement('img');
         img.src = image.src;
-        img.alt = 'Imagen del anuncio';
+        img.alt = `Imagen del anuncio ${index + 1}`;
         imageItem.appendChild(img);
 
-        // Modificar esta parte para usar iconos en lugar de texto
         const markMainButton = document.createElement('button');
         markMainButton.type = 'button';
         markMainButton.classList.add('mark-main');
@@ -1151,29 +1154,26 @@ function renderImages() {
             markMainButton.classList.add('active');
         }
         
-        // Crear el icono de estrella
         const starIcon = document.createElement('i');
         starIcon.classList.add(image.isMain ? 'fas' : 'far', 'fa-star');
         markMainButton.appendChild(starIcon);
-        
         markMainButton.onclick = () => setMainImage(index);
         imageItem.appendChild(markMainButton);
 
-        // Modificar esta parte para usar icono de papelera
         const removeButton = document.createElement('button');
         removeButton.type = 'button';
         removeButton.classList.add('remove-image');
         
-        // Crear el icono de papelera
         const trashIcon = document.createElement('i');
         trashIcon.classList.add('fas', 'fa-trash-alt');
         removeButton.appendChild(trashIcon);
-        
         removeButton.onclick = () => removeImage(index);
         imageItem.appendChild(removeButton);
 
         previewContainer.appendChild(imageItem);
     });
+
+    updateMainImageInput();
 }
 
 function updateMainImageInput() {
@@ -1224,21 +1224,15 @@ document.getElementById('modificarForm').addEventListener('submit', async functi
 
     const formData = new FormData(this);
 
-    // Limpiar imágenes anteriores del FormData
+    // Limpiar las imágenes anteriores del FormData
     formData.delete('imagenes[]');
 
     // Agregar solo las imágenes nuevas no procesadas
-    let hasNewImages = false;
-    for (const image of images) {
+    images.forEach(image => {
         if (image.file && !image.processed) {
             formData.append('imagenes[]', image.file);
-            image.processed = true;
-            hasNewImages = true;
-            console.log('Agregando nueva imagen:', image.file.name);
         }
-    }
-
-    console.log('Número de imágenes nuevas:', formData.getAll('imagenes[]').length);
+    });
 
     try {
         const response = await fetch(this.action, {
